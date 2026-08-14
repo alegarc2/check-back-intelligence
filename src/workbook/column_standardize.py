@@ -24,6 +24,8 @@ SFDC_URL_RE = re.compile(
     r"^https://ciscocollaboration\.lightning\.force\.com/",
     re.I,
 )
+HTTP_URL_RE = re.compile(r"^https://", re.I)
+SUCCESS_PORTAL_URL_RE = re.compile(r"success|portal|webex", re.I)
 SUB_RE = re.compile(r"Sub\s*(\d+)", re.I)
 DATE_RANGE_RE = re.compile(
     r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}-[A-Za-z]{3}-\d{4})"
@@ -205,6 +207,17 @@ def _salesforce_url_or_red(s: str) -> tuple[str, bool]:
     if s.lower() in placeholders or not s.startswith("http"):
         return s, True
     return s, not SFDC_URL_RE.match(s)
+
+
+def _http_url_or_red(s: str, *, prefer_host: re.Pattern[str] | None = None) -> tuple[str, bool]:
+    s = _cell_str(s)
+    if not s:
+        return "", False
+    if not s.startswith("http"):
+        return s, True
+    if prefer_host and not prefer_host.search(s):
+        return s, True
+    return s, not HTTP_URL_RE.match(s)
 
 
 def _gyr(s: str) -> tuple[str, bool]:
@@ -572,6 +585,12 @@ def standardize_workbook(
                 new_val = raw.strip()
             elif name == "Opportunity (linked)":
                 new_val, red = _salesforce_from_cell(cell, raw)
+                url_cell = bool(new_val) and not red and str(new_val).startswith("http")
+            elif name == "Salesforce URL":
+                new_val, red = _salesforce_url_or_red(raw)
+                url_cell = bool(new_val) and not red and str(new_val).startswith("http")
+            elif name == "Success Portal":
+                new_val, red = _http_url_or_red(raw, prefer_host=SUCCESS_PORTAL_URL_RE)
                 url_cell = bool(new_val) and not red and str(new_val).startswith("http")
             elif name == "Customer org id":
                 new_val, red = _uuid_or_red(raw)

@@ -45,7 +45,7 @@ pdf_patterns:
     fields: ["Notes from provisioned features"]
   - pattern: "(?i)success.?portal|cloud collaboration"
     extractor: success_portal
-    fields: ["CSM Engagement Model (linked)", "CSM name"]
+    fields: ["CSM Engagement Model (linked)", "CSM name", "Success Portal"]
   - pattern: "(?i)genuineparts"
     extractor: summary
     fields: [Opportunity Name, "Customer org id"]
@@ -98,6 +98,8 @@ check_back_columns:
   - Data gathered by
   - Data gathered date
   - Salesforce URL
+  - Success Portal
+  - Recommended Actions
 
 # PowerPoint slide section → spreadsheet columns
 powerpoint_sections:
@@ -112,6 +114,7 @@ powerpoint_sections:
     - Collab AE/SE
     - "CSM Engagement Model (linked)"
     - "CSM name"
+    - Success Portal
     - Trend active users 90d
     - Trend call volume 90d
     - Service lines

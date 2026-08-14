@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from src.workbook.check_back_template import (  # noqa: E402
     CHECK_BACK_HEADERS,
     build_template_workbook,
+    repair_v1_template,
 )
 
 HDR_FILL = PatternFill(start_color="0D1526", end_color="0D1526", fill_type="solid")
@@ -55,6 +56,7 @@ INSTALL_BASE_SAMPLE_ROW = {
 def build_check_back_template(dest: Path) -> None:
     v1 = ROOT / "samples" / "check_back_template_v1.xlsx"
     if v1.is_file():
+        repair_v1_template(v1)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(v1, dest)
         return

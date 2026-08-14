@@ -158,6 +158,11 @@ def extract_success_portal(text: str, fields: dict[str, Any]) -> None:
         m = re.search(rf"(?i){label}[:\s]+(.{{2,80}})", text)
         if m:
             fields[key] = {"value": m.group(1).strip().split("\n")[0], "confidence": "medium"}
+    for url in re.findall(r"https?://[^\s\)\]>\"']+", text):
+        clean = url.rstrip(".,;)")
+        if re.search(r"success|portal|webex", clean, re.I):
+            fields["Success Portal"] = {"value": clean, "confidence": "medium"}
+            break
 
 
 def extract_summary(text: str, fields: dict[str, Any]) -> None:

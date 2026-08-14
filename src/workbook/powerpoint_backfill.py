@@ -54,6 +54,7 @@ def _ensure_columns(ws, col_index: dict[str, int]) -> dict[str, int]:
     start = max(col_index.values(), default=2) + 1
     section_for: dict[str, str] = {
         "Salesforce URL": "Subscription Review",
+        "Success Portal": "Subscription Review",
         "AAR $": "Subscription Review",
         "Collab AE/SE": "Subscription Review",
         "Service lines": "Subscription Review",

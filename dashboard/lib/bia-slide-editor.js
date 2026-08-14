@@ -4,6 +4,7 @@
 class BiaSlideEditor {
   static LIC_LABEL_COL = {
     Professional: 'Lic Professional (used/entitled)',
+    Standard: 'Lic Standard (used/entitled)',
     Workspace: 'Lic Workspace (used/entitled)',
   };
 
@@ -103,16 +104,62 @@ class BiaSlideEditor {
   }
 
   static readEditableValue(el) {
-    const a = el.querySelector('a.customer-link[href]');
-    if (a) {
-      const href = a.getAttribute('href');
+    const col = el.getAttribute('data-col') || '';
+    const links = el.querySelectorAll('a.customer-link[href]');
+    if (links.length) {
+      if (col === 'Sub #') {
+        return [...links]
+          .map((a) =>
+            DashboardHtml.normalizeSubColumnValue(a.textContent || a.getAttribute('href') || '')
+          )
+          .filter((s) => s && !BiaSlideEditor.isPlaceholderValue(s))
+          .join(', ');
+      }
+      const href = links[0].getAttribute('href');
       if (href && href.startsWith('http')) return href.trim();
     }
     const text = el.innerText.replace(/\u00a0/g, ' ').trim();
+    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
+    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+      return BiaSanitizer.normalizeGyrColumnValue(text);
+    }
+    if (col === 'TCV $') {
+      const stored = el.getAttribute('data-raw-value');
+      if (stored != null && stored !== '') {
+        const displayed = BiaSanitizer.formatMoneyDisplay(stored);
+        const current = text;
+        if (
+          current === displayed ||
+          current === stored ||
+          current === BiaSanitizer.sanitizeMoney(stored)
+        ) {
+          return stored;
+        }
+      }
+      return BiaSanitizer.normalizeMoneyColumnValue(text);
+    }
+    if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(text);
     if (el.classList.contains('insight-notes-edit') && /^Click to add notes…$/i.test(text)) {
       return '';
     }
     return text;
+  }
+
+  static normalizeSavedColumnValue(col, val) {
+    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
+    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+      return BiaSanitizer.normalizeGyrColumnValue(val);
+    }
+    if (col === 'TCV $') {
+      return BiaSanitizer.normalizeMoneyColumnValue(val);
+    }
+    if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(val);
+    if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
+      return BiaSanitizer.normalizeTrendColumnValue(val);
+    }
+    return val;
   }
 
   static isPlaceholderValue(val) {
@@ -126,7 +173,10 @@ class BiaSlideEditor {
     root.querySelectorAll('.bia-editable-value[data-col]').forEach((el) => {
       const col = el.getAttribute('data-col');
       if (!col) return;
-      const val = BiaSlideEditor.readEditableValue(el);
+      const val = BiaSlideEditor.normalizeSavedColumnValue(
+        col,
+        BiaSlideEditor.readEditableValue(el)
+      );
       if (BiaSlideEditor.isPlaceholderValue(val)) return;
       out[col] = val;
     });
@@ -140,7 +190,16 @@ class BiaSlideEditor {
 
   static flattenLinksForEdit(root) {
     root.querySelectorAll('.insight-kv strong a.customer-link, .insight-link-edit-row a.customer-link').forEach((a) => {
-      const text = a.getAttribute('href') || a.textContent || '';
+      const host = a.closest('[data-col]');
+      const col = host?.getAttribute('data-col') || '';
+      let text;
+      if (col === 'Sub #') {
+        text =
+          (a.textContent || '').trim() ||
+          DashboardHtml.normalizeSubColumnValue(a.getAttribute('href') || '');
+      } else {
+        text = a.getAttribute('href') || a.textContent || '';
+      }
       a.replaceWith(document.createTextNode(text));
     });
   }

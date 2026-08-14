@@ -17,6 +17,20 @@ CheckBack.Dashboard.Constants = {
   WEBEX_ORG_ADMIN_PREFIX: 'https://admin.webex.com/help-desk/org/',
   CCRC_SUB_DETAIL_PREFIX: 'https://ccrc.cisco.com/subscriptions/detail/',
   DEFAULT_LINK_ORDER: ['S&C', 'Success Portal'],
+  TREND_DISPLAY: [
+    {
+      label: 'Trend Active Users in the last 90 days',
+      col: 'Trend active users 90d',
+      deckKey: 'trendActiveUsers',
+      legacyRe: 'active users',
+    },
+    {
+      label: 'Trend Call Volume in the last 90 days',
+      col: 'Trend call volume 90d',
+      deckKey: 'trendCallVolume',
+      legacyRe: 'call volume|provisioned licenses',
+    },
+  ],
   ADDON_ROWS: [
     'PSTN Cisco Calling Plans',
     'Customer Assist',
@@ -86,6 +100,8 @@ CheckBack.Dashboard.Constants = {
     'Data gathered by',
     'Data gathered date',
     'Salesforce URL',
+    'Success Portal',
+    'Recommended Actions',
   ],
   BIA_CANONICAL_COLS: new Set([
     'Opportunity Name',
@@ -129,7 +145,6 @@ CheckBack.Dashboard.Constants = {
     'Competitor',
     'Migrating from',
     'Migrating to',
-    'Success Portal',
     'CSM name',
     'Sub Term',
     'Sub start date (MM/DD/YYYY)',
@@ -139,7 +154,6 @@ CheckBack.Dashboard.Constants = {
     'Notes from provisioned features',
     'Trial',
     'Final Determination',
-    'Recommended Actions',
     'TAC/BEMS',
     'Control Hub Helpdesk',
   ],
@@ -173,6 +187,49 @@ class BiaSanitizer {
     if (/Licenses Active|External Calls vs|numbers \(/i.test(s)) return '';
     const m = s.match(/^\$[\d,.]+[KMB]?/i);
     return m ? m[0] : s.split(/\s{2,}/)[0].trim();
+  }
+
+  /** Parse currency-like text to a number (supports $, commas, K/M/B). */
+  static parseMoneyNumber(raw) {
+    let s = String(raw ?? '').trim();
+    if (!s) return null;
+    s = s.replace(/^\$/, '').replace(/,/g, '').trim();
+    const suffix = s.match(/^([\d.]+)\s*([KMB])$/i);
+    if (suffix) {
+      let n = parseFloat(suffix[1]);
+      if (Number.isNaN(n)) return null;
+      const mult = { K: 1e3, M: 1e6, B: 1e9 };
+      n *= mult[suffix[2].toUpperCase()] || 1;
+      return n;
+    }
+    const n = parseFloat(s.replace(/[^\d.-]/g, ''));
+    return Number.isNaN(n) ? null : n;
+  }
+
+  /** Dashboard display only — full USD currency formatting. */
+  static formatMoneyDisplay(raw) {
+    const n = BiaSanitizer.parseMoneyNumber(raw);
+    if (n == null) {
+      const s = BiaSanitizer.sanitizeMoney(raw) || BiaSanitizer.sanitizeField(raw);
+      return s || '';
+    }
+    const rawStr = String(raw ?? '');
+    const hasCents =
+      Math.abs(n - Math.round(n)) > 0.001 || /\.\d{1,2}(?:\D|$)/.test(rawStr);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: hasCents ? 2 : 0,
+    }).format(n);
+  }
+
+  /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
+  static normalizeMoneyColumnValue(raw) {
+    const n = BiaSanitizer.parseMoneyNumber(raw);
+    if (n == null) return String(raw ?? '').trim();
+    if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n);
+    return Math.round(n * 100) / 100;
   }
 
   static sanitizeSegment(raw) {
@@ -209,6 +266,17 @@ class BiaSanitizer {
     return '';
   }
 
+  /** Workbook (G/Y/R) column — single letter only, not slide display labels. */
+  static normalizeGyrColumnValue(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s || s === '—') return '';
+    const fromLabel = BiaSanitizer.healthToGyr(s);
+    if (fromLabel) return fromLabel;
+    const c = s.toUpperCase().charAt(0);
+    if (c === 'G' || c === 'Y' || c === 'R') return c;
+    return s;
+  }
+
   static gyrToHealth(gyr) {
     const v = String(gyr || '').trim().toUpperCase();
     const c = v.charAt(0);
@@ -234,6 +302,38 @@ class BiaSanitizer {
 
   static normalizeOrgId(val) {
     return String(val ?? '').trim().toLowerCase();
+  }
+
+  /** positive | negative | neutral — for trend pill coloring. */
+  static trendSign(raw) {
+    const s = String(raw ?? '').trim().replace(/%\s*$/, '');
+    if (!s) return 'neutral';
+    if (/\bDOWN\b/i.test(s) || /\bdecreas/i.test(s)) return 'negative';
+    if (/\bUP\b/i.test(s) || /\bincreas/i.test(s)) return 'positive';
+    const signed = s.match(/[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/);
+    if (signed) {
+      const n = parseFloat(signed[0]);
+      if (Number.isNaN(n) || n === 0) return 'neutral';
+      return n > 0 ? 'positive' : 'negative';
+    }
+    return 'neutral';
+  }
+
+  /** Display trend metrics with a trailing % for numeric workbook values. */
+  static formatTrendDisplay(raw) {
+    const s = BiaSanitizer.sanitizeField(raw);
+    if (!s) return '';
+    if (/%/.test(s)) return s;
+    const compact = s.match(/^([-+]?\d+(?:\.\d+)?)$/);
+    if (compact) return `${compact[1]}%`;
+    return s;
+  }
+
+  /** Workbook storage — strip trailing % from trend columns. */
+  static normalizeTrendColumnValue(raw) {
+    return String(raw ?? '')
+      .trim()
+      .replace(/%\s*$/, '');
   }
 }
 
@@ -274,6 +374,30 @@ class DashboardHtml {
     return `${prefix}${id}`;
   }
 
+  /** Workbook-safe Sub # value — never persist CCRC URLs in the Sub # column. */
+  static normalizeSubColumnValue(val) {
+    let s = String(val ?? '').trim();
+    if (!s) return '';
+    const ccrc = s.match(/subscriptions\/detail\/(Sub\d+)/i);
+    if (ccrc) return ccrc[1];
+    if (/^https?:\/\//i.test(s)) {
+      try {
+        const seg = new URL(s).pathname.split('/').filter(Boolean).pop() || '';
+        if (/^Sub\d+$/i.test(seg)) return DashboardHtml.normalizeSubId(seg);
+      } catch {
+        /* ignore invalid URL */
+      }
+    }
+    if (s.includes(',')) {
+      return s
+        .split(',')
+        .map((part) => DashboardHtml.normalizeSubColumnValue(part.trim()))
+        .filter(Boolean)
+        .join(', ');
+    }
+    return DashboardHtml.normalizeSubId(s) || s;
+  }
+
   static subLinksHtml(val) {
     if (val == null || val === '') return '';
     const subs = String(val)
@@ -309,12 +433,17 @@ class DashboardHtml {
       .replace(/"/g, '&quot;');
   }
 
-  static editableAttrs(col) {
+  static editableAttrs(col, rawValue) {
     if (!col) return '';
-    return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}" contenteditable="false"`;
+    let extra = '';
+    if (col === 'TCV $' && rawValue != null && String(rawValue).trim() !== '') {
+      extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+    }
+    return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
   }
 
-  static kv(label, value, col) {
+  static kv(label, value, col, opts) {
+    const options = opts || {};
     const raw = BiaSanitizer.cleanVal(value);
     if (!raw) return '';
     const isLong =
@@ -323,6 +452,9 @@ class DashboardHtml {
       raw.length > 72 ||
       /^https?:\/\//i.test(raw);
     let inner = DashboardHtml.esc(raw);
+    if (options.moneyDisplay || col === 'TCV $') {
+      inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
+    }
     if (label === 'Customer Org ID' && !col) {
       inner = DashboardHtml.orgLink(raw);
     }
@@ -342,14 +474,23 @@ class DashboardHtml {
       col === 'Sub #'
         ? ' insight-kv-stack'
         : '';
-    const attrs = col ? DashboardHtml.editableAttrs(col) : '';
+    const attrs = col ? DashboardHtml.editableAttrs(col, raw) : '';
     return `<div class="insight-kv${stackClass}"><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${inner}</strong></div>`;
   }
 
   static licBar(label, raw, col) {
     const mappedCol = col || CheckBack.Dashboard.BiaSlideEditor?.LIC_LABEL_COL?.[label] || '';
     const s = BiaSanitizer.sanitizeField(raw);
-    const m = s.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)\s*\((\d+)%\)/);
+    let m = s.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)\s*\((\d+)%\)/);
+    if (!m) {
+      const plain = s.match(/^(\d[\d,]*)\s*\/\s*(\d[\d,]*)$/);
+      if (plain) {
+        const u = parseFloat(plain[1].replace(/,/g, ''));
+        const t = parseFloat(plain[2].replace(/,/g, ''));
+        const pct = t ? Math.min(100, Math.round((u / t) * 100)) : 0;
+        m = [null, plain[1], plain[2], String(pct)];
+      }
+    }
     if (!m) return DashboardHtml.kv(label, s || '—', mappedCol);
     const u = parseFloat(m[1].replace(/,/g, ''));
     const t = parseFloat(m[2].replace(/,/g, ''));
@@ -519,7 +660,9 @@ class LicenseProductParser {
 
   /** Order matters: WxMS before WxM so "WxMS" is not read as "WxM". */
   static PRODUCT_PAIR_RE =
-    /\b(WxMS|WxM|WxCC|PL|WS)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+    /\b(WxMS|WxM|WxCC|PL|WS|STD|Standard)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+  static STANDARD_PAIR_RE =
+    /\bStandard\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
   /** e.g. "1,265 workspace 335" → Professional 1265, Workspace 335 */
   static PROF_WS_SHORT_RE = /(\d[\d,]*)\s+workspace\s+(\d[\d,]*)/i;
 
@@ -528,6 +671,7 @@ class LicenseProductParser {
     wxMeetings: 'Webex Meetings',
     wxContactCenter: 'Webex Contact Center',
     pl: 'Professional',
+    std: 'Standard',
     ws: 'Workspace',
   };
 
@@ -535,6 +679,7 @@ class LicenseProductParser {
     const combined = sources.filter((s) => s != null && String(s).trim()).join(' ');
     const out = {
       pl: '',
+      std: '',
       ws: '',
       wxMeetingSuite: '',
       wxMeetings: '',
@@ -551,7 +696,12 @@ class LicenseProductParser {
       else if (token === 'WXM') out.wxMeetings = pair;
       else if (token === 'WXCC') out.wxContactCenter = pair;
       else if (token === 'PL') out.pl = pair;
+      else if (token === 'STD' || token === 'STANDARD') out.std = pair;
       else if (token === 'WS') out.ws = pair;
+    }
+    const stdRe = new RegExp(LicenseProductParser.STANDARD_PAIR_RE.source, 'gi');
+    while ((m = stdRe.exec(combined)) !== null) {
+      if (!out.std) out.std = `${m[1]}/${m[2]}`;
     }
     return out;
   }
@@ -816,12 +966,15 @@ class LicenseProductParser {
       BiaSanitizer.sanitizeField(p.licProfessional || p.professional || '') ||
       parsed.pl ||
       shorthand.pl;
+    const std =
+      BiaSanitizer.sanitizeField(p.licStandard || p.standard || '') || parsed.std;
     const ws =
       BiaSanitizer.sanitizeField(p.licWorkspace || p.workspace || '') ||
       parsed.ws ||
       shorthand.ws;
     return {
       pl,
+      std,
       ws,
       wxMeetingSuite: BiaSanitizer.sanitizeField(p.wxMeetingSuite || '') || parsed.wxMeetingSuite,
       wxMeetings: BiaSanitizer.sanitizeField(p.wxMeetings || '') || parsed.wxMeetings,
@@ -831,12 +984,12 @@ class LicenseProductParser {
   }
 
   static hasPlWsBreakdown(lic) {
-    return Boolean(lic.pl || lic.ws);
+    return Boolean(lic.pl || lic.std || lic.ws);
   }
 
   static hasAnyProduct(lic) {
     return Boolean(
-      lic.pl || lic.ws || lic.wxMeetingSuite || lic.wxMeetings || lic.wxContactCenter
+      lic.pl || lic.std || lic.ws || lic.wxMeetingSuite || lic.wxMeetings || lic.wxContactCenter
     );
   }
 }
@@ -1000,14 +1153,17 @@ class BiaWorkbookMapper {
     const lic = LicenseProductParser.mergeIntoProvisioning(
       {
         licProfessional: enriched['Lic Professional (used/entitled)'],
+        licStandard: enriched['Lic Standard (used/entitled)'],
         licWorkspace: enriched['Lic Workspace (used/entitled)'],
       },
       licSources
     );
+    const hasLicenseBreakdownCols =
+      !BiaSanitizer.isEmptyVal(enriched['Lic Professional (used/entitled)']) ||
+      !BiaSanitizer.isEmptyVal(enriched['Lic Standard (used/entitled)']) ||
+      !BiaSanitizer.isEmptyVal(enriched['Lic Workspace (used/entitled)']);
     const hasPlWsCols =
-      (!BiaSanitizer.isEmptyVal(enriched['Lic Professional (used/entitled)']) &&
-        !BiaSanitizer.isEmptyVal(enriched['Lic Workspace (used/entitled)'])) ||
-      (Boolean(lic.pl) && Boolean(lic.ws));
+      hasLicenseBreakdownCols || LicenseProductParser.hasPlWsBreakdown(lic);
 
     const slide = {
       customerName: enriched['Opportunity Name'] || 'Customer',
@@ -1041,6 +1197,7 @@ class BiaWorkbookMapper {
             enriched['Provisioned/Entitled Lic Calling'] ||
             '',
         licProfessional: lic.pl,
+        licStandard: lic.std,
         licWorkspace: lic.ws,
         wxMeetingSuite: lic.wxMeetingSuite,
         wxMeetings: lic.wxMeetings,
@@ -1060,6 +1217,8 @@ class BiaWorkbookMapper {
         virtualLines: enriched['Virtual Lines count'] || '—',
       },
       trends,
+      trendActiveUsers: enriched['Trend active users 90d'] || '',
+      trendCallVolume: enriched['Trend call volume 90d'] || '',
       notes: BiaWorkbookMapper.collectRowNotes(enriched),
       workbookNotes: {
         analytics: enriched['Notes from Calling Analytics'] || '',
@@ -1101,7 +1260,7 @@ class BiaWorkbookMapper {
     set('Collab AE/SE', s.collabAe);
     set('CSM Engagement Model (linked)', s.csmModel || wbRow['CSM Engagement Model (linked)']);
     if (deck.salesforceUrl) set('Salesforce URL', deck.salesforceUrl);
-    if (deck.successPortalUrl) set('Success Portal', deck.successPortalUrl);
+    if (deck.successPortalUrl !== undefined) set('Success Portal', deck.successPortalUrl || '');
     set('Provisioned/Entitled Lic Calling', p.entitled || wbRow['Provisioned/Entitled Lic Calling']);
     set('Entitled Lic Calling', p.entitled);
     set(
@@ -1110,7 +1269,7 @@ class BiaWorkbookMapper {
     );
     set('Active Lic Calling', p.activeUsers);
     set('Lic Professional (used/entitled)', BiaSanitizer.licPair(p.professional || p.licProfessional));
-    set('Lic Standard (used/entitled)', BiaSanitizer.licPair(p.standard));
+    set('Lic Standard (used/entitled)', BiaSanitizer.licPair(p.standard || p.licStandard));
     set('Lic Workspace (used/entitled)', BiaSanitizer.licPair(p.workspace || p.licWorkspace));
     set('Meetings usage', p.meetings);
     set('Messaging usage', p.messaging);
@@ -1124,6 +1283,8 @@ class BiaWorkbookMapper {
     if (actPct) set('Active % of provisioned', actPct[1] + '%');
     set('Data gathered by', deck.gatheredBy);
     set('Data gathered date', deck.gatheredDate);
+    set('Trend active users 90d', deck.trendActiveUsers || wbRow['Trend active users 90d']);
+    set('Trend call volume 90d', deck.trendCallVolume || wbRow['Trend call volume 90d']);
 
     (deck.trends || []).forEach((t) => {
       const text = BiaSanitizer.sanitizeField(t);
@@ -1136,6 +1297,11 @@ class BiaWorkbookMapper {
       .filter((t) => t.length > 24)
       .join('\n');
     if (noteText) set('Notes from Calling Analytics', noteText);
+
+    const wbNotes = deck.workbookNotes || {};
+    set('Notes from Calling Analytics', wbNotes.analytics || wbRow['Notes from Calling Analytics']);
+    set('Notes from provisioned features', wbNotes.features || wbRow['Notes from provisioned features']);
+    set('Recommended Actions', wbNotes.recommended || wbRow['Recommended Actions']);
 
     if (deck.orgId) out._biaSlide = true;
     return out;
@@ -1285,6 +1451,7 @@ class BiaSlideMerger {
         entitled: BiaSanitizer.sanitizeField(p.entitled),
         provisioned: BiaSanitizer.sanitizeField(p.provisioned),
         licProfessional: BiaSanitizer.sanitizeField(p.licProfessional),
+        licStandard: BiaSanitizer.sanitizeField(p.licStandard),
         licWorkspace: BiaSanitizer.sanitizeField(p.licWorkspace),
         wxMeetingSuite: BiaSanitizer.sanitizeField(p.wxMeetingSuite),
         wxMeetings: BiaSanitizer.sanitizeField(p.wxMeetings),
@@ -1299,6 +1466,8 @@ class BiaSlideMerger {
         numbersAssigned: BiaSanitizer.sanitizeField(p.numbersAssigned),
         locations: BiaSanitizer.sanitizeField(p.locations),
       },
+      trendActiveUsers: BiaSanitizer.sanitizeField(slide.trendActiveUsers),
+      trendCallVolume: BiaSanitizer.sanitizeField(slide.trendCallVolume),
       features: { ...f },
     };
   }
@@ -1350,6 +1519,12 @@ class BiaSlideMerger {
     });
 
     if (rowSlide.trends?.length) merged.trends = rowSlide.trends;
+    if (!BiaSanitizer.isEmptyVal(rowSlide.trendActiveUsers)) {
+      merged.trendActiveUsers = rowSlide.trendActiveUsers;
+    }
+    if (!BiaSanitizer.isEmptyVal(rowSlide.trendCallVolume)) {
+      merged.trendCallVolume = rowSlide.trendCallVolume;
+    }
 
     if (rowSlide.notes?.length) {
       if (slide.fromWorkbook || !merged.notes?.length) {
@@ -1400,22 +1575,36 @@ class BiaSlideRenderer {
     return `<strong${attrs}>${inner}</strong>`;
   }
 
-  static addonCell(name, slot, value) {
-    const v = BiaSanitizer.sanitizeField(value || '—');
-    const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
-    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
+  /** Sub # → CCRC subscription detail link(s), same row style as S&amp;C / Success Portal. */
+  static linkSubCell(val, col) {
+    const raw = String(val ?? '').trim();
+    const attrs = DashboardHtml.editableAttrs(col);
+    if (!raw) {
+      return `<strong${attrs}>${DashboardHtml.esc('—')}</strong>`;
+    }
+    const links = DashboardHtml.subLinksHtml(raw);
+    const inner = links || DashboardHtml.esc(raw);
+    return `<strong${attrs}>${inner}</strong>`;
   }
 
   static renderLinksRow(s, deck) {
+    const sub = String(s.sub || '').trim();
     const sf = String(deck.salesforceUrl || '').trim();
     const spUrl = String(deck.successPortalUrl || '').trim();
     return `<div class="insight-kv insight-kv-links insight-kv-stack">
       <span>Links</span>
       <div class="insight-links-grid">
+        <div class="insight-link-edit-row"><span class="insight-link-label">Subscription</span>${BiaSlideRenderer.linkSubCell(sub, 'Sub #')}</div>
         <div class="insight-link-edit-row"><span class="insight-link-label">S&amp;C</span>${BiaSlideRenderer.linkUrlCell(sf, 'Salesforce URL')}</div>
         <div class="insight-link-edit-row"><span class="insight-link-label">Success Portal</span>${BiaSlideRenderer.linkUrlCell(spUrl, 'Success Portal')}</div>
       </div>
     </div>`;
+  }
+
+  static addonCell(name, slot, value) {
+    const v = BiaSanitizer.sanitizeField(value || '—');
+    const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
+    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
   }
 
   static renderProvisionedBlock(p) {
@@ -1423,6 +1612,7 @@ class BiaSlideRenderer {
 
     const rows = [
       ['pl', lic.pl],
+      ['std', lic.std],
       ['ws', lic.ws],
       ['wxMeetingSuite', lic.wxMeetingSuite],
       ['wxMeetings', lic.wxMeetings],
@@ -1511,6 +1701,39 @@ class BiaSlideRenderer {
     </div>`;
   }
 
+  static renderTrendsBlock(deck) {
+    const specs = CheckBack.Dashboard.Constants.TREND_DISPLAY || [];
+    const legacy = deck.trends || [];
+    const items = specs
+      .map((spec) => {
+        let value = BiaSanitizer.cleanVal(deck[spec.deckKey]);
+        if (BiaSanitizer.isEmptyVal(value) && legacy.length) {
+          const re = new RegExp(spec.legacyRe, 'i');
+          const match = legacy.find((t) => re.test(String(t)));
+          if (match) value = BiaSanitizer.sanitizeField(match);
+        }
+        if (BiaSanitizer.isEmptyVal(value)) return null;
+        const sanitized = BiaSanitizer.sanitizeField(value);
+        return {
+          ...spec,
+          value: sanitized,
+          displayValue: BiaSanitizer.formatTrendDisplay(sanitized),
+          sign: BiaSanitizer.trendSign(sanitized),
+        };
+      })
+      .filter(Boolean);
+    if (!items.length) return '';
+    const body = items
+      .map(
+        (item) => `<div class="bia-trend-item">
+      <span class="bia-trend-label">${DashboardHtml.esc(item.label)}</span>
+      <span class="insight-trend insight-trend-${DashboardHtml.escAttr(item.sign)} bia-editable-value" data-col="${DashboardHtml.escAttr(item.col)}" contenteditable="false">${DashboardHtml.esc(item.displayValue)}</span>
+    </div>`
+      )
+      .join('');
+    return `<div class="bia-trends-row">${body}</div>`;
+  }
+
   static render(slide) {
     const deck = BiaSlideMerger.sanitizeSlide(slide);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
@@ -1523,9 +1746,7 @@ class BiaSlideRenderer {
         ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
         : '';
 
-    const trends = (deck.trends || [])
-      .map((t) => `<span class="insight-trend">${DashboardHtml.esc(BiaSanitizer.sanitizeField(t))}</span>`)
-      .join('');
+    const trendsHtml = BiaSlideRenderer.renderTrendsBlock(deck);
 
     const notesHtml = BiaSlideRenderer.renderNotesBlock(deck);
 
@@ -1560,7 +1781,6 @@ class BiaSlideRenderer {
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
-          ${DashboardHtml.kv('Subscription', s.sub, 'Sub #')}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}
           ${DashboardHtml.kv('Total Recurring Revenue (AAR)', s.aar, 'AAR $')}
@@ -1598,7 +1818,7 @@ class BiaSlideRenderer {
         </section>
       </div>
 
-      ${trends ? `<div class="bia-trends-row">${trends}</div>` : ''}
+      ${trendsHtml}
 
       <section class="insight-panel insight-panel-notes">
         <h3>Notes &amp; Recommended Actions</h3>
@@ -1617,6 +1837,7 @@ CheckBack.Dashboard.BiaSlideRenderer = BiaSlideRenderer;
 class BiaSlideEditor {
   static LIC_LABEL_COL = {
     Professional: 'Lic Professional (used/entitled)',
+    Standard: 'Lic Standard (used/entitled)',
     Workspace: 'Lic Workspace (used/entitled)',
   };
 
@@ -1716,16 +1937,62 @@ class BiaSlideEditor {
   }
 
   static readEditableValue(el) {
-    const a = el.querySelector('a.customer-link[href]');
-    if (a) {
-      const href = a.getAttribute('href');
+    const col = el.getAttribute('data-col') || '';
+    const links = el.querySelectorAll('a.customer-link[href]');
+    if (links.length) {
+      if (col === 'Sub #') {
+        return [...links]
+          .map((a) =>
+            DashboardHtml.normalizeSubColumnValue(a.textContent || a.getAttribute('href') || '')
+          )
+          .filter((s) => s && !BiaSlideEditor.isPlaceholderValue(s))
+          .join(', ');
+      }
+      const href = links[0].getAttribute('href');
       if (href && href.startsWith('http')) return href.trim();
     }
     const text = el.innerText.replace(/\u00a0/g, ' ').trim();
+    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
+    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+      return BiaSanitizer.normalizeGyrColumnValue(text);
+    }
+    if (col === 'TCV $') {
+      const stored = el.getAttribute('data-raw-value');
+      if (stored != null && stored !== '') {
+        const displayed = BiaSanitizer.formatMoneyDisplay(stored);
+        const current = text;
+        if (
+          current === displayed ||
+          current === stored ||
+          current === BiaSanitizer.sanitizeMoney(stored)
+        ) {
+          return stored;
+        }
+      }
+      return BiaSanitizer.normalizeMoneyColumnValue(text);
+    }
+    if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(text);
     if (el.classList.contains('insight-notes-edit') && /^Click to add notes…$/i.test(text)) {
       return '';
     }
     return text;
+  }
+
+  static normalizeSavedColumnValue(col, val) {
+    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
+    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+      return BiaSanitizer.normalizeGyrColumnValue(val);
+    }
+    if (col === 'TCV $') {
+      return BiaSanitizer.normalizeMoneyColumnValue(val);
+    }
+    if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(val);
+    if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
+      return BiaSanitizer.normalizeTrendColumnValue(val);
+    }
+    return val;
   }
 
   static isPlaceholderValue(val) {
@@ -1739,7 +2006,10 @@ class BiaSlideEditor {
     root.querySelectorAll('.bia-editable-value[data-col]').forEach((el) => {
       const col = el.getAttribute('data-col');
       if (!col) return;
-      const val = BiaSlideEditor.readEditableValue(el);
+      const val = BiaSlideEditor.normalizeSavedColumnValue(
+        col,
+        BiaSlideEditor.readEditableValue(el)
+      );
       if (BiaSlideEditor.isPlaceholderValue(val)) return;
       out[col] = val;
     });
@@ -1753,7 +2023,16 @@ class BiaSlideEditor {
 
   static flattenLinksForEdit(root) {
     root.querySelectorAll('.insight-kv strong a.customer-link, .insight-link-edit-row a.customer-link').forEach((a) => {
-      const text = a.getAttribute('href') || a.textContent || '';
+      const host = a.closest('[data-col]');
+      const col = host?.getAttribute('data-col') || '';
+      let text;
+      if (col === 'Sub #') {
+        text =
+          (a.textContent || '').trim() ||
+          DashboardHtml.normalizeSubColumnValue(a.getAttribute('href') || '');
+      } else {
+        text = a.getAttribute('href') || a.textContent || '';
+      }
       a.replaceWith(document.createTextNode(text));
     });
   }
@@ -4759,10 +5038,12 @@ const PanelCache = (function () {
     ['Trend active users 90d', 'Subscription Review'],
     ['Trend call volume 90d', 'Subscription Review'],
     ['Salesforce URL', 'Subscription Review'],
+    ['Success Portal', 'Subscription Review'],
     ['Provisioned/Entitled Lic Calling', 'Provisioning & Usage'],
     ['Active Lic Calling', 'Provisioning & Usage'],
     ['Notes from Calling Analytics', 'Provisioning & Usage'],
     ['Notes from provisioned features', 'Provisioning & Usage'],
+    ['Recommended Actions', 'Provisioning & Usage'],
     ['Lic Professional (used/entitled)', 'Provisioning & Usage'],
     ['Lic Standard (used/entitled)', 'Provisioning & Usage'],
     ['Lic Workspace (used/entitled)', 'Provisioning & Usage'],
@@ -4898,11 +5179,9 @@ const DashboardExport = (function () {
     'Providioned Lic Calling',
     'Numbers assigned',
     'Locations main number',
-    'Success Portal',
     'Control Hub Helpdesk',
     ' (G/Y/R)',
     'Final Determination',
-    'Recommended Actions',
     'CSM / Account Team notes',
     'Trial',
     'Total calls',
@@ -4938,8 +5217,26 @@ const DashboardExport = (function () {
   function exportCellValue(row, col) {
     if (col === '(G/Y/R)') {
       const current = row['(G/Y/R)'];
-      if (current != null && String(current).trim() !== '') return cellValue(current);
-      return cellValue(row[' (G/Y/R)']);
+      const raw =
+        current != null && String(current).trim() !== '' ? current : row[' (G/Y/R)'];
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeGyrColumnValue) {
+        return cellValue(BiaSanitizer.normalizeGyrColumnValue(raw));
+      }
+      return cellValue(raw);
+    }
+    if (col === 'Sub #') {
+      const raw = row[col];
+      if (typeof DashboardHtml !== 'undefined' && DashboardHtml.normalizeSubColumnValue) {
+        return cellValue(DashboardHtml.normalizeSubColumnValue(raw));
+      }
+      return cellValue(raw);
+    }
+    if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
+      const raw = row[col];
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeTrendColumnValue) {
+        return cellValue(BiaSanitizer.normalizeTrendColumnValue(raw));
+      }
+      return cellValue(raw);
     }
     return cellValue(row[col]);
   }

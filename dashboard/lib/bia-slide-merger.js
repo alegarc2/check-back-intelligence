@@ -25,6 +25,7 @@ class BiaSlideMerger {
         entitled: BiaSanitizer.sanitizeField(p.entitled),
         provisioned: BiaSanitizer.sanitizeField(p.provisioned),
         licProfessional: BiaSanitizer.sanitizeField(p.licProfessional),
+        licStandard: BiaSanitizer.sanitizeField(p.licStandard),
         licWorkspace: BiaSanitizer.sanitizeField(p.licWorkspace),
         wxMeetingSuite: BiaSanitizer.sanitizeField(p.wxMeetingSuite),
         wxMeetings: BiaSanitizer.sanitizeField(p.wxMeetings),
@@ -39,6 +40,8 @@ class BiaSlideMerger {
         numbersAssigned: BiaSanitizer.sanitizeField(p.numbersAssigned),
         locations: BiaSanitizer.sanitizeField(p.locations),
       },
+      trendActiveUsers: BiaSanitizer.sanitizeField(slide.trendActiveUsers),
+      trendCallVolume: BiaSanitizer.sanitizeField(slide.trendCallVolume),
       features: { ...f },
     };
   }
@@ -90,6 +93,12 @@ class BiaSlideMerger {
     });
 
     if (rowSlide.trends?.length) merged.trends = rowSlide.trends;
+    if (!BiaSanitizer.isEmptyVal(rowSlide.trendActiveUsers)) {
+      merged.trendActiveUsers = rowSlide.trendActiveUsers;
+    }
+    if (!BiaSanitizer.isEmptyVal(rowSlide.trendCallVolume)) {
+      merged.trendCallVolume = rowSlide.trendCallVolume;
+    }
 
     if (rowSlide.notes?.length) {
       if (slide.fromWorkbook || !merged.notes?.length) {

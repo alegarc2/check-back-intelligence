@@ -15,22 +15,36 @@ class BiaSlideRenderer {
     return `<strong${attrs}>${inner}</strong>`;
   }
 
-  static addonCell(name, slot, value) {
-    const v = BiaSanitizer.sanitizeField(value || '—');
-    const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
-    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
+  /** Sub # → CCRC subscription detail link(s), same row style as S&amp;C / Success Portal. */
+  static linkSubCell(val, col) {
+    const raw = String(val ?? '').trim();
+    const attrs = DashboardHtml.editableAttrs(col);
+    if (!raw) {
+      return `<strong${attrs}>${DashboardHtml.esc('—')}</strong>`;
+    }
+    const links = DashboardHtml.subLinksHtml(raw);
+    const inner = links || DashboardHtml.esc(raw);
+    return `<strong${attrs}>${inner}</strong>`;
   }
 
   static renderLinksRow(s, deck) {
+    const sub = String(s.sub || '').trim();
     const sf = String(deck.salesforceUrl || '').trim();
     const spUrl = String(deck.successPortalUrl || '').trim();
     return `<div class="insight-kv insight-kv-links insight-kv-stack">
       <span>Links</span>
       <div class="insight-links-grid">
+        <div class="insight-link-edit-row"><span class="insight-link-label">Subscription</span>${BiaSlideRenderer.linkSubCell(sub, 'Sub #')}</div>
         <div class="insight-link-edit-row"><span class="insight-link-label">S&amp;C</span>${BiaSlideRenderer.linkUrlCell(sf, 'Salesforce URL')}</div>
         <div class="insight-link-edit-row"><span class="insight-link-label">Success Portal</span>${BiaSlideRenderer.linkUrlCell(spUrl, 'Success Portal')}</div>
       </div>
     </div>`;
+  }
+
+  static addonCell(name, slot, value) {
+    const v = BiaSanitizer.sanitizeField(value || '—');
+    const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
+    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
   }
 
   static renderProvisionedBlock(p) {
@@ -38,6 +52,7 @@ class BiaSlideRenderer {
 
     const rows = [
       ['pl', lic.pl],
+      ['std', lic.std],
       ['ws', lic.ws],
       ['wxMeetingSuite', lic.wxMeetingSuite],
       ['wxMeetings', lic.wxMeetings],
@@ -126,6 +141,39 @@ class BiaSlideRenderer {
     </div>`;
   }
 
+  static renderTrendsBlock(deck) {
+    const specs = CheckBack.Dashboard.Constants.TREND_DISPLAY || [];
+    const legacy = deck.trends || [];
+    const items = specs
+      .map((spec) => {
+        let value = BiaSanitizer.cleanVal(deck[spec.deckKey]);
+        if (BiaSanitizer.isEmptyVal(value) && legacy.length) {
+          const re = new RegExp(spec.legacyRe, 'i');
+          const match = legacy.find((t) => re.test(String(t)));
+          if (match) value = BiaSanitizer.sanitizeField(match);
+        }
+        if (BiaSanitizer.isEmptyVal(value)) return null;
+        const sanitized = BiaSanitizer.sanitizeField(value);
+        return {
+          ...spec,
+          value: sanitized,
+          displayValue: BiaSanitizer.formatTrendDisplay(sanitized),
+          sign: BiaSanitizer.trendSign(sanitized),
+        };
+      })
+      .filter(Boolean);
+    if (!items.length) return '';
+    const body = items
+      .map(
+        (item) => `<div class="bia-trend-item">
+      <span class="bia-trend-label">${DashboardHtml.esc(item.label)}</span>
+      <span class="insight-trend insight-trend-${DashboardHtml.escAttr(item.sign)} bia-editable-value" data-col="${DashboardHtml.escAttr(item.col)}" contenteditable="false">${DashboardHtml.esc(item.displayValue)}</span>
+    </div>`
+      )
+      .join('');
+    return `<div class="bia-trends-row">${body}</div>`;
+  }
+
   static render(slide) {
     const deck = BiaSlideMerger.sanitizeSlide(slide);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
@@ -138,9 +186,7 @@ class BiaSlideRenderer {
         ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
         : '';
 
-    const trends = (deck.trends || [])
-      .map((t) => `<span class="insight-trend">${DashboardHtml.esc(BiaSanitizer.sanitizeField(t))}</span>`)
-      .join('');
+    const trendsHtml = BiaSlideRenderer.renderTrendsBlock(deck);
 
     const notesHtml = BiaSlideRenderer.renderNotesBlock(deck);
 
@@ -175,7 +221,6 @@ class BiaSlideRenderer {
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
-          ${DashboardHtml.kv('Subscription', s.sub, 'Sub #')}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}
           ${DashboardHtml.kv('Total Recurring Revenue (AAR)', s.aar, 'AAR $')}
@@ -213,7 +258,7 @@ class BiaSlideRenderer {
         </section>
       </div>
 
-      ${trends ? `<div class="bia-trends-row">${trends}</div>` : ''}
+      ${trendsHtml}
 
       <section class="insight-panel insight-panel-notes">
         <h3>Notes &amp; Recommended Actions</h3>

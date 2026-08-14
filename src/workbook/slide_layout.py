@@ -19,6 +19,7 @@ SUBSCRIPTION_FIELDS = (
     "Trend active users 90d",
     "Trend call volume 90d",
     "Salesforce URL",
+    "Success Portal",
 )
 
 # Provisioning & Usage (orange)

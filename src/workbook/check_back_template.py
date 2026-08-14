@@ -61,6 +61,8 @@ CHECK_BACK_HEADERS = [
     "Data gathered by",
     "Data gathered date",
     "Salesforce URL",
+    "Success Portal",
+    "Recommended Actions",
 ]
 
 GYR_COL = "(G/Y/R)"
@@ -86,6 +88,24 @@ def load_template(path: str | Path) -> tuple[openpyxl.Workbook, dict[str, int], 
         if cell.value:
             col_index[str(cell.value).strip()] = col_idx
     return wb, col_index, header_row
+
+
+def repair_v1_template(path: str | Path) -> int:
+    """Align an on-disk v1 template with CHECK_BACK_HEADERS (sheet name, headers, styling)."""
+    path = Path(path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+    ws.title = "Customer Data"
+    for col, name in enumerate(CHECK_BACK_HEADERS, start=1):
+        cell = ws.cell(1, col, value=name)
+        cell.fill = HDR_FILL
+        cell.font = HDR_FONT
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+    for col in range(len(CHECK_BACK_HEADERS) + 1, ws.max_column + 1):
+        ws.cell(1, col).value = None
+    wb.save(path)
+    wb.close()
+    return len(CHECK_BACK_HEADERS)
 
 
 def build_template_workbook() -> openpyxl.Workbook:

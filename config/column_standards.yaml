@@ -92,5 +92,16 @@ columns:
   "Notes from provisioned features":
     action: trim
 
+  Recommended Actions:
+    action: trim
+
   TAC/BEMS:
     action: yn_or_red
+
+  "Salesforce URL":
+    action: salesforce_url_or_red
+    valid_pattern: "^https://ciscocollaboration\\.lightning\\.force\\.com/"
+
+  Success Portal:
+    action: http_url_or_red
+    valid_pattern: "^https://"

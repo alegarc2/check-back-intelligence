@@ -299,7 +299,9 @@
   .bia-addon-table{width:100%;font-size:11px;border-collapse:collapse;margin-top:8px;}
   .bia-addon-table th,.bia-addon-table td{border:1px solid rgba(255,255,255,.1);padding:4px 6px;text-align:center;}
   .bia-addon-table th{text-align:left;background:rgba(0,0,0,.2);}
-  .bia-trends-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;padding:12px 14px;background:rgba(0,0,0,.2);border-radius:8px;}
+  .bia-trends-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding:12px 14px;background:rgba(0,0,0,.2);border-radius:8px;}
+  .bia-trend-item{display:flex;flex-direction:column;gap:4px;min-width:min(100%,220px);flex:1 1 220px;}
+  .bia-trend-label{font-size:11px;font-weight:600;color:var(--text-secondary);line-height:1.35;}
   .checkback-charts-wrap{margin-top:8px;}
   .checkback-charts-wrap summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--text-secondary);padding:10px 0;list-style:none;}
   .checkback-charts-wrap summary::-webkit-details-marker{display:none;}
@@ -384,7 +386,10 @@
   .insight-note{font-size:12px;line-height:1.5;color:var(--text-secondary);padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);}
   .insight-note strong{color:var(--text-primary);}
   .insight-trends{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;}
-  .insight-trend{font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(0,212,160,.15);color:#00d4a0;font-weight:700;}
+  .insight-trend{font-size:11px;padding:4px 8px;border-radius:6px;font-weight:700;display:inline-block;width:fit-content;}
+  .insight-trend-positive{background:rgba(0,212,160,.15);color:#00d4a0;}
+  .insight-trend-negative{background:rgba(239,68,68,.18);color:#f87171;}
+  .insight-trend-neutral{background:rgba(148,163,184,.15);color:#94a3b8;}
   .insight-footer{text-align:center;font-size:11px;color:var(--text-muted);margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
   @media(max-width:1100px){.insight-panels{grid-template-columns:1fr;}.insight-kpi-strip{grid-template-columns:repeat(2,1fr);}}
 </style>
@@ -2271,7 +2276,17 @@ function extractInsightSlideSections(slideRoot){
     });
     if(rows.length)sections.push({title,rows});
   });
-  const trends=[...slideRoot.querySelectorAll('.insight-trend')].map(t=>pdfTextFromNode(t)).filter(Boolean);
+  const trends=[...slideRoot.querySelectorAll('.bia-trend-item')].map(item=>{
+    const label=pdfTextFromNode(item.querySelector('.bia-trend-label'));
+    const value=pdfTextFromNode(item.querySelector('.insight-trend'));
+    return label&&value?`${label}: ${value}`:(value||label);
+  }).filter(Boolean);
+  if(!trends.length){
+    [...slideRoot.querySelectorAll('.insight-trend')].forEach(t=>{
+      const v=pdfTextFromNode(t);
+      if(v)trends.push(v);
+    });
+  }
   if(trends.length)sections.push({title:'Trends',rows:trends.map(t=>['Trend',t])});
   return sections;
 }

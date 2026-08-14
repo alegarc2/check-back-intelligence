@@ -11,6 +11,20 @@ CheckBack.Dashboard.Constants = {
   WEBEX_ORG_ADMIN_PREFIX: 'https://admin.webex.com/help-desk/org/',
   CCRC_SUB_DETAIL_PREFIX: 'https://ccrc.cisco.com/subscriptions/detail/',
   DEFAULT_LINK_ORDER: ['S&C', 'Success Portal'],
+  TREND_DISPLAY: [
+    {
+      label: 'Trend Active Users in the last 90 days',
+      col: 'Trend active users 90d',
+      deckKey: 'trendActiveUsers',
+      legacyRe: 'active users',
+    },
+    {
+      label: 'Trend Call Volume in the last 90 days',
+      col: 'Trend call volume 90d',
+      deckKey: 'trendCallVolume',
+      legacyRe: 'call volume|provisioned licenses',
+    },
+  ],
   ADDON_ROWS: [
     'PSTN Cisco Calling Plans',
     'Customer Assist',
@@ -80,6 +94,8 @@ CheckBack.Dashboard.Constants = {
     'Data gathered by',
     'Data gathered date',
     'Salesforce URL',
+    'Success Portal',
+    'Recommended Actions',
   ],
   BIA_CANONICAL_COLS: new Set([
     'Opportunity Name',
@@ -123,7 +139,6 @@ CheckBack.Dashboard.Constants = {
     'Competitor',
     'Migrating from',
     'Migrating to',
-    'Success Portal',
     'CSM name',
     'Sub Term',
     'Sub start date (MM/DD/YYYY)',
@@ -133,7 +148,6 @@ CheckBack.Dashboard.Constants = {
     'Notes from provisioned features',
     'Trial',
     'Final Determination',
-    'Recommended Actions',
     'TAC/BEMS',
     'Control Hub Helpdesk',
   ],

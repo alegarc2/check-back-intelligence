@@ -87,14 +87,17 @@ class BiaWorkbookMapper {
     const lic = LicenseProductParser.mergeIntoProvisioning(
       {
         licProfessional: enriched['Lic Professional (used/entitled)'],
+        licStandard: enriched['Lic Standard (used/entitled)'],
         licWorkspace: enriched['Lic Workspace (used/entitled)'],
       },
       licSources
     );
+    const hasLicenseBreakdownCols =
+      !BiaSanitizer.isEmptyVal(enriched['Lic Professional (used/entitled)']) ||
+      !BiaSanitizer.isEmptyVal(enriched['Lic Standard (used/entitled)']) ||
+      !BiaSanitizer.isEmptyVal(enriched['Lic Workspace (used/entitled)']);
     const hasPlWsCols =
-      (!BiaSanitizer.isEmptyVal(enriched['Lic Professional (used/entitled)']) &&
-        !BiaSanitizer.isEmptyVal(enriched['Lic Workspace (used/entitled)'])) ||
-      (Boolean(lic.pl) && Boolean(lic.ws));
+      hasLicenseBreakdownCols || LicenseProductParser.hasPlWsBreakdown(lic);
 
     const slide = {
       customerName: enriched['Opportunity Name'] || 'Customer',
@@ -128,6 +131,7 @@ class BiaWorkbookMapper {
             enriched['Provisioned/Entitled Lic Calling'] ||
             '',
         licProfessional: lic.pl,
+        licStandard: lic.std,
         licWorkspace: lic.ws,
         wxMeetingSuite: lic.wxMeetingSuite,
         wxMeetings: lic.wxMeetings,
@@ -147,6 +151,8 @@ class BiaWorkbookMapper {
         virtualLines: enriched['Virtual Lines count'] || '—',
       },
       trends,
+      trendActiveUsers: enriched['Trend active users 90d'] || '',
+      trendCallVolume: enriched['Trend call volume 90d'] || '',
       notes: BiaWorkbookMapper.collectRowNotes(enriched),
       workbookNotes: {
         analytics: enriched['Notes from Calling Analytics'] || '',
@@ -188,7 +194,7 @@ class BiaWorkbookMapper {
     set('Collab AE/SE', s.collabAe);
     set('CSM Engagement Model (linked)', s.csmModel || wbRow['CSM Engagement Model (linked)']);
     if (deck.salesforceUrl) set('Salesforce URL', deck.salesforceUrl);
-    if (deck.successPortalUrl) set('Success Portal', deck.successPortalUrl);
+    if (deck.successPortalUrl !== undefined) set('Success Portal', deck.successPortalUrl || '');
     set('Provisioned/Entitled Lic Calling', p.entitled || wbRow['Provisioned/Entitled Lic Calling']);
     set('Entitled Lic Calling', p.entitled);
     set(
@@ -197,7 +203,7 @@ class BiaWorkbookMapper {
     );
     set('Active Lic Calling', p.activeUsers);
     set('Lic Professional (used/entitled)', BiaSanitizer.licPair(p.professional || p.licProfessional));
-    set('Lic Standard (used/entitled)', BiaSanitizer.licPair(p.standard));
+    set('Lic Standard (used/entitled)', BiaSanitizer.licPair(p.standard || p.licStandard));
     set('Lic Workspace (used/entitled)', BiaSanitizer.licPair(p.workspace || p.licWorkspace));
     set('Meetings usage', p.meetings);
     set('Messaging usage', p.messaging);
@@ -211,6 +217,8 @@ class BiaWorkbookMapper {
     if (actPct) set('Active % of provisioned', actPct[1] + '%');
     set('Data gathered by', deck.gatheredBy);
     set('Data gathered date', deck.gatheredDate);
+    set('Trend active users 90d', deck.trendActiveUsers || wbRow['Trend active users 90d']);
+    set('Trend call volume 90d', deck.trendCallVolume || wbRow['Trend call volume 90d']);
 
     (deck.trends || []).forEach((t) => {
       const text = BiaSanitizer.sanitizeField(t);
@@ -223,6 +231,11 @@ class BiaWorkbookMapper {
       .filter((t) => t.length > 24)
       .join('\n');
     if (noteText) set('Notes from Calling Analytics', noteText);
+
+    const wbNotes = deck.workbookNotes || {};
+    set('Notes from Calling Analytics', wbNotes.analytics || wbRow['Notes from Calling Analytics']);
+    set('Notes from provisioned features', wbNotes.features || wbRow['Notes from provisioned features']);
+    set('Recommended Actions', wbNotes.recommended || wbRow['Recommended Actions']);
 
     if (deck.orgId) out._biaSlide = true;
     return out;

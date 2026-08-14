@@ -34,6 +34,30 @@ class DashboardHtml {
     return `${prefix}${id}`;
   }
 
+  /** Workbook-safe Sub # value — never persist CCRC URLs in the Sub # column. */
+  static normalizeSubColumnValue(val) {
+    let s = String(val ?? '').trim();
+    if (!s) return '';
+    const ccrc = s.match(/subscriptions\/detail\/(Sub\d+)/i);
+    if (ccrc) return ccrc[1];
+    if (/^https?:\/\//i.test(s)) {
+      try {
+        const seg = new URL(s).pathname.split('/').filter(Boolean).pop() || '';
+        if (/^Sub\d+$/i.test(seg)) return DashboardHtml.normalizeSubId(seg);
+      } catch {
+        /* ignore invalid URL */
+      }
+    }
+    if (s.includes(',')) {
+      return s
+        .split(',')
+        .map((part) => DashboardHtml.normalizeSubColumnValue(part.trim()))
+        .filter(Boolean)
+        .join(', ');
+    }
+    return DashboardHtml.normalizeSubId(s) || s;
+  }
+
   static subLinksHtml(val) {
     if (val == null || val === '') return '';
     const subs = String(val)
@@ -69,12 +93,17 @@ class DashboardHtml {
       .replace(/"/g, '&quot;');
   }
 
-  static editableAttrs(col) {
+  static editableAttrs(col, rawValue) {
     if (!col) return '';
-    return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}" contenteditable="false"`;
+    let extra = '';
+    if (col === 'TCV $' && rawValue != null && String(rawValue).trim() !== '') {
+      extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+    }
+    return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
   }
 
-  static kv(label, value, col) {
+  static kv(label, value, col, opts) {
+    const options = opts || {};
     const raw = BiaSanitizer.cleanVal(value);
     if (!raw) return '';
     const isLong =
@@ -83,6 +112,9 @@ class DashboardHtml {
       raw.length > 72 ||
       /^https?:\/\//i.test(raw);
     let inner = DashboardHtml.esc(raw);
+    if (options.moneyDisplay || col === 'TCV $') {
+      inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
+    }
     if (label === 'Customer Org ID' && !col) {
       inner = DashboardHtml.orgLink(raw);
     }
@@ -102,14 +134,23 @@ class DashboardHtml {
       col === 'Sub #'
         ? ' insight-kv-stack'
         : '';
-    const attrs = col ? DashboardHtml.editableAttrs(col) : '';
+    const attrs = col ? DashboardHtml.editableAttrs(col, raw) : '';
     return `<div class="insight-kv${stackClass}"><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${inner}</strong></div>`;
   }
 
   static licBar(label, raw, col) {
     const mappedCol = col || CheckBack.Dashboard.BiaSlideEditor?.LIC_LABEL_COL?.[label] || '';
     const s = BiaSanitizer.sanitizeField(raw);
-    const m = s.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)\s*\((\d+)%\)/);
+    let m = s.match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)\s*\((\d+)%\)/);
+    if (!m) {
+      const plain = s.match(/^(\d[\d,]*)\s*\/\s*(\d[\d,]*)$/);
+      if (plain) {
+        const u = parseFloat(plain[1].replace(/,/g, ''));
+        const t = parseFloat(plain[2].replace(/,/g, ''));
+        const pct = t ? Math.min(100, Math.round((u / t) * 100)) : 0;
+        m = [null, plain[1], plain[2], String(pct)];
+      }
+    }
     if (!m) return DashboardHtml.kv(label, s || '—', mappedCol);
     const u = parseFloat(m[1].replace(/,/g, ''));
     const t = parseFloat(m[2].replace(/,/g, ''));

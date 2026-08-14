@@ -8,11 +8,9 @@ const DashboardExport = (function () {
     'Providioned Lic Calling',
     'Numbers assigned',
     'Locations main number',
-    'Success Portal',
     'Control Hub Helpdesk',
     ' (G/Y/R)',
     'Final Determination',
-    'Recommended Actions',
     'CSM / Account Team notes',
     'Trial',
     'Total calls',
@@ -48,8 +46,26 @@ const DashboardExport = (function () {
   function exportCellValue(row, col) {
     if (col === '(G/Y/R)') {
       const current = row['(G/Y/R)'];
-      if (current != null && String(current).trim() !== '') return cellValue(current);
-      return cellValue(row[' (G/Y/R)']);
+      const raw =
+        current != null && String(current).trim() !== '' ? current : row[' (G/Y/R)'];
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeGyrColumnValue) {
+        return cellValue(BiaSanitizer.normalizeGyrColumnValue(raw));
+      }
+      return cellValue(raw);
+    }
+    if (col === 'Sub #') {
+      const raw = row[col];
+      if (typeof DashboardHtml !== 'undefined' && DashboardHtml.normalizeSubColumnValue) {
+        return cellValue(DashboardHtml.normalizeSubColumnValue(raw));
+      }
+      return cellValue(raw);
+    }
+    if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
+      const raw = row[col];
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeTrendColumnValue) {
+        return cellValue(BiaSanitizer.normalizeTrendColumnValue(raw));
+      }
+      return cellValue(raw);
     }
     return cellValue(row[col]);
   }

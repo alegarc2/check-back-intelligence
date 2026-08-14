@@ -8,7 +8,9 @@ class LicenseProductParser {
 
   /** Order matters: WxMS before WxM so "WxMS" is not read as "WxM". */
   static PRODUCT_PAIR_RE =
-    /\b(WxMS|WxM|WxCC|PL|WS)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+    /\b(WxMS|WxM|WxCC|PL|WS|STD|Standard)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+  static STANDARD_PAIR_RE =
+    /\bStandard\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
   /** e.g. "1,265 workspace 335" → Professional 1265, Workspace 335 */
   static PROF_WS_SHORT_RE = /(\d[\d,]*)\s+workspace\s+(\d[\d,]*)/i;
 
@@ -17,6 +19,7 @@ class LicenseProductParser {
     wxMeetings: 'Webex Meetings',
     wxContactCenter: 'Webex Contact Center',
     pl: 'Professional',
+    std: 'Standard',
     ws: 'Workspace',
   };
 
@@ -24,6 +27,7 @@ class LicenseProductParser {
     const combined = sources.filter((s) => s != null && String(s).trim()).join(' ');
     const out = {
       pl: '',
+      std: '',
       ws: '',
       wxMeetingSuite: '',
       wxMeetings: '',
@@ -40,7 +44,12 @@ class LicenseProductParser {
       else if (token === 'WXM') out.wxMeetings = pair;
       else if (token === 'WXCC') out.wxContactCenter = pair;
       else if (token === 'PL') out.pl = pair;
+      else if (token === 'STD' || token === 'STANDARD') out.std = pair;
       else if (token === 'WS') out.ws = pair;
+    }
+    const stdRe = new RegExp(LicenseProductParser.STANDARD_PAIR_RE.source, 'gi');
+    while ((m = stdRe.exec(combined)) !== null) {
+      if (!out.std) out.std = `${m[1]}/${m[2]}`;
     }
     return out;
   }
@@ -305,12 +314,15 @@ class LicenseProductParser {
       BiaSanitizer.sanitizeField(p.licProfessional || p.professional || '') ||
       parsed.pl ||
       shorthand.pl;
+    const std =
+      BiaSanitizer.sanitizeField(p.licStandard || p.standard || '') || parsed.std;
     const ws =
       BiaSanitizer.sanitizeField(p.licWorkspace || p.workspace || '') ||
       parsed.ws ||
       shorthand.ws;
     return {
       pl,
+      std,
       ws,
       wxMeetingSuite: BiaSanitizer.sanitizeField(p.wxMeetingSuite || '') || parsed.wxMeetingSuite,
       wxMeetings: BiaSanitizer.sanitizeField(p.wxMeetings || '') || parsed.wxMeetings,
@@ -320,12 +332,12 @@ class LicenseProductParser {
   }
 
   static hasPlWsBreakdown(lic) {
-    return Boolean(lic.pl || lic.ws);
+    return Boolean(lic.pl || lic.std || lic.ws);
   }
 
   static hasAnyProduct(lic) {
     return Boolean(
-      lic.pl || lic.ws || lic.wxMeetingSuite || lic.wxMeetings || lic.wxContactCenter
+      lic.pl || lic.std || lic.ws || lic.wxMeetingSuite || lic.wxMeetings || lic.wxContactCenter
     );
   }
 }

@@ -29,6 +29,49 @@ class BiaSanitizer {
     return m ? m[0] : s.split(/\s{2,}/)[0].trim();
   }
 
+  /** Parse currency-like text to a number (supports $, commas, K/M/B). */
+  static parseMoneyNumber(raw) {
+    let s = String(raw ?? '').trim();
+    if (!s) return null;
+    s = s.replace(/^\$/, '').replace(/,/g, '').trim();
+    const suffix = s.match(/^([\d.]+)\s*([KMB])$/i);
+    if (suffix) {
+      let n = parseFloat(suffix[1]);
+      if (Number.isNaN(n)) return null;
+      const mult = { K: 1e3, M: 1e6, B: 1e9 };
+      n *= mult[suffix[2].toUpperCase()] || 1;
+      return n;
+    }
+    const n = parseFloat(s.replace(/[^\d.-]/g, ''));
+    return Number.isNaN(n) ? null : n;
+  }
+
+  /** Dashboard display only — full USD currency formatting. */
+  static formatMoneyDisplay(raw) {
+    const n = BiaSanitizer.parseMoneyNumber(raw);
+    if (n == null) {
+      const s = BiaSanitizer.sanitizeMoney(raw) || BiaSanitizer.sanitizeField(raw);
+      return s || '';
+    }
+    const rawStr = String(raw ?? '');
+    const hasCents =
+      Math.abs(n - Math.round(n)) > 0.001 || /\.\d{1,2}(?:\D|$)/.test(rawStr);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: hasCents ? 2 : 0,
+    }).format(n);
+  }
+
+  /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
+  static normalizeMoneyColumnValue(raw) {
+    const n = BiaSanitizer.parseMoneyNumber(raw);
+    if (n == null) return String(raw ?? '').trim();
+    if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n);
+    return Math.round(n * 100) / 100;
+  }
+
   static sanitizeSegment(raw) {
     const s = BiaSanitizer.sanitizeField(raw);
     if (/External Calls|Licenses Active|@cisco\.com/i.test(s)) return '';
@@ -63,6 +106,17 @@ class BiaSanitizer {
     return '';
   }
 
+  /** Workbook (G/Y/R) column — single letter only, not slide display labels. */
+  static normalizeGyrColumnValue(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s || s === '—') return '';
+    const fromLabel = BiaSanitizer.healthToGyr(s);
+    if (fromLabel) return fromLabel;
+    const c = s.toUpperCase().charAt(0);
+    if (c === 'G' || c === 'Y' || c === 'R') return c;
+    return s;
+  }
+
   static gyrToHealth(gyr) {
     const v = String(gyr || '').trim().toUpperCase();
     const c = v.charAt(0);
@@ -88,6 +142,38 @@ class BiaSanitizer {
 
   static normalizeOrgId(val) {
     return String(val ?? '').trim().toLowerCase();
+  }
+
+  /** positive | negative | neutral — for trend pill coloring. */
+  static trendSign(raw) {
+    const s = String(raw ?? '').trim().replace(/%\s*$/, '');
+    if (!s) return 'neutral';
+    if (/\bDOWN\b/i.test(s) || /\bdecreas/i.test(s)) return 'negative';
+    if (/\bUP\b/i.test(s) || /\bincreas/i.test(s)) return 'positive';
+    const signed = s.match(/[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/);
+    if (signed) {
+      const n = parseFloat(signed[0]);
+      if (Number.isNaN(n) || n === 0) return 'neutral';
+      return n > 0 ? 'positive' : 'negative';
+    }
+    return 'neutral';
+  }
+
+  /** Display trend metrics with a trailing % for numeric workbook values. */
+  static formatTrendDisplay(raw) {
+    const s = BiaSanitizer.sanitizeField(raw);
+    if (!s) return '';
+    if (/%/.test(s)) return s;
+    const compact = s.match(/^([-+]?\d+(?:\.\d+)?)$/);
+    if (compact) return `${compact[1]}%`;
+    return s;
+  }
+
+  /** Workbook storage — strip trailing % from trend columns. */
+  static normalizeTrendColumnValue(raw) {
+    return String(raw ?? '')
+      .trim()
+      .replace(/%\s*$/, '');
   }
 }
 
