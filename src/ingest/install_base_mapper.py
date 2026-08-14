@@ -43,6 +43,9 @@ def _format_license(mt: Any, di: Any) -> str:
     return " ".join(parts) if parts else ""
 
 
+PROV_ENT = "Provisioned/Entitled Lic Calling"
+
+
 def map_row(ib_row: dict[str, Any], config: dict[str, Any] | None = None) -> tuple[dict[str, str], list[dict[str, str]]]:
     """Return Check Back row dict and gap report entries."""
     config = config or load_config()
@@ -57,16 +60,39 @@ def map_row(ib_row: dict[str, Any], config: dict[str, Any] | None = None) -> tup
         if ib_col == "Risk2_0_current":
             val = risk_map.get(str(val), str(val)[:1].upper() if val else "")
         elif ib_col in ("Webex Calling MT Provisioned Seats", "Webex Calling DI Provisioned Seats"):
-            if cb_col == "Providioned Lic Calling" and "Providioned Lic Calling" not in out:
-                val = _format_license(
-                    ib_row.get("Webex Calling MT Provisioned Seats"),
-                    ib_row.get("Webex Calling DI Provisioned Seats"),
+            val = _format_license(
+                ib_row.get("Webex Calling MT Provisioned Seats"),
+                ib_row.get("Webex Calling DI Provisioned Seats"),
+            )
+            if val:
+                existing = out.get(PROV_ENT, "")
+                out[PROV_ENT] = f"{existing}; {val}".strip("; ") if existing else val
+            if ib_col in review and ib_col in ib_row and ib_row[ib_col]:
+                gaps.append(
+                    {
+                        "field": PROV_ENT,
+                        "source": ib_col,
+                        "confidence": "medium",
+                        "suggested_action": f"Verify mapping: {ib_col} → {review[ib_col]}",
+                    }
                 )
-            else:
-                continue
-        elif ib_col == "Cloud Calling Billed Seats" and cb_col == "Entitled Lic Calling":
+            continue
+        elif ib_col == "Cloud Calling Billed Seats":
             seats = _first_number(val) or _first_number(ib_row.get("Total Billed Seats"))
             val = f"{int(seats)} workspace" if seats else ""
+            if val:
+                existing = out.get(PROV_ENT, "")
+                out[PROV_ENT] = f"{existing}; {val}".strip("; ") if existing else val
+            if ib_col in review and ib_col in ib_row and ib_row[ib_col]:
+                gaps.append(
+                    {
+                        "field": PROV_ENT,
+                        "source": ib_col,
+                        "confidence": "medium",
+                        "suggested_action": f"Verify mapping: {ib_col} → {review[ib_col]}",
+                    }
+                )
+            continue
         if val not in (None, ""):
             out[cb_col] = str(val) if not isinstance(val, (int, float)) else val
         if ib_col in review and ib_col in ib_row and ib_row[ib_col]:

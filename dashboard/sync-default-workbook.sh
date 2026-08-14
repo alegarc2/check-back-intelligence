@@ -3,6 +3,9 @@
 cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
 SRC="${CHECK_BACK_XLSX:-$ROOT/output/Check_Back_standardized.xlsx}"
+if [[ "$SRC" != /* ]]; then
+  SRC="$ROOT/$SRC"
+fi
 DEST="check_back_default.xlsx"
 
 if [ ! -f "$SRC" ]; then

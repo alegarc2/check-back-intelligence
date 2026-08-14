@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -12,10 +13,11 @@ from openpyxl.styles import Alignment, Font, PatternFill
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.workbook.check_back_template import CHECK_BACK_HEADERS  # noqa: E402
+from src.workbook.check_back_template import (  # noqa: E402
+    CHECK_BACK_HEADERS,
+    build_template_workbook,
+)
 
-SECTION = "Business Insight"
-FILL = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
 HDR_FILL = PatternFill(start_color="0D1526", end_color="0D1526", fill_type="solid")
 HDR_FONT = Font(bold=True, color="94A3B8", size=10)
 
@@ -51,18 +53,15 @@ INSTALL_BASE_SAMPLE_ROW = {
 
 
 def build_check_back_template(dest: Path) -> None:
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Sheet1"
-    for col, name in enumerate(CHECK_BACK_HEADERS, start=1):
-        ws.cell(1, col, value=SECTION if col == 1 else "")
-        ws.cell(1, col).fill = FILL
-        ws.cell(2, col, value=name)
-        ws.cell(2, col).fill = HDR_FILL
-        ws.cell(2, col).font = HDR_FONT
-        ws.cell(2, col).alignment = Alignment(wrap_text=True, vertical="top")
+    v1 = ROOT / "samples" / "check_back_template_v1.xlsx"
+    if v1.is_file():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(v1, dest)
+        return
+    wb = build_template_workbook()
     dest.parent.mkdir(parents=True, exist_ok=True)
     wb.save(dest)
+    wb.close()
 
 
 def build_install_base_sample(dest: Path) -> None:
@@ -83,6 +82,7 @@ def main() -> None:
     build_install_base_sample(samples / "install_base_sample.xlsx")
     print(f"Wrote {samples / 'check_back_template.xlsx'}")
     print(f"Wrote {samples / 'install_base_sample.xlsx'}")
+    print(f"Canonical headers ({len(CHECK_BACK_HEADERS)} columns) from check_back_template_v1.xlsx")
 
 
 if __name__ == "__main__":

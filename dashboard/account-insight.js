@@ -152,7 +152,7 @@ const AccountInsight = (function () {
       _ctx.rowKey = Editor.rowKey(_ctx.row);
     }
     _ctx.dirty = false;
-    setStatus('Saved — use Full export or Save customer data to download .xlsx');
+    setStatus('Saved — click Save customer data to write changes to the workbook');
     if (typeof _ctx.onSaved === 'function') _ctx.onSaved(edits);
     return true;
   }

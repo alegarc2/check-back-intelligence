@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Run the dashboard over HTTP (required for reliable script loading).
+# Run the dashboard over HTTP with local workbook write-back.
 cd "$(dirname "$0")"
+ROOT="$(cd .. && pwd)"
 "$(dirname "$0")/sync-default-workbook.sh" 2>/dev/null || true
 
 pick_port() {
@@ -17,11 +18,23 @@ pick_port() {
 if lsof -Pi :8765 -sTCP:LISTEN -t >/dev/null 2>&1; then
   echo "A server is already running on port 8765."
   echo "Open: http://127.0.0.1:8765/index.html"
-  echo "After editing output/Check_Back_standardized.xlsx, run: ./sync-default-workbook.sh"
+  echo "If save-to-workbook fails, restart with this script (not python -m http.server)."
+  echo "After editing the baseline on disk, run: ./sync-default-workbook.sh"
   echo "Then in the dashboard click Reload baseline or Reload spreadsheet."
   exit 0
 fi
 
 PORT="$(pick_port)" || { echo "No free port found (8765-8780). Stop other servers and retry."; exit 1; }
+export PORT
+export CHECK_BACK_XLSX="${CHECK_BACK_XLSX:-$ROOT/output/Check_Back_standardized.xlsx}"
+if [[ "$CHECK_BACK_XLSX" != /* ]]; then
+  export CHECK_BACK_XLSX="$ROOT/$CHECK_BACK_XLSX"
+fi
+
+PY="python3"
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  PY="$ROOT/.venv/bin/python"
+fi
+
 echo "Check Back dashboard: http://127.0.0.1:${PORT}/index.html"
-exec python3 -m http.server "$PORT"
+exec "$PY" "$ROOT/dashboard/serve_with_save.py"

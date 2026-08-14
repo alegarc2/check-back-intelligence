@@ -28,13 +28,13 @@ python3 -m venv .venv
 
 ```bash
 # Option A — start from the included template
-cp samples/check_back_template.xlsx output/my_portfolio.xlsx
+cp samples/check_back_template_v1.xlsx output/my_portfolio.xlsx
 export CHECK_BACK_XLSX=output/my_portfolio.xlsx
 
 # Option B — build from customer PDFs/screenshots
 .venv/bin/python -m src.cli populate \
   --sources ./my-customer-pdfs \
-  --template samples/check_back_template.xlsx \
+  --template samples/check_back_template_v1.xlsx \
   --out output/my_portfolio.xlsx
 export CHECK_BACK_XLSX=output/my_portfolio.xlsx
 
@@ -80,7 +80,7 @@ Python equivalent for sync: `python -m src.cli sync-workbook -i output/my_portfo
 .venv/bin/python -m src.cli populate \
   --sources ./path/to/customer-pdfs \
   --account "CUSTOMER NAME" \
-  --template samples/check_back_template.xlsx \
+  --template samples/check_back_template_v1.xlsx \
   --out output/my_portfolio.xlsx \
   --mode append
 ```
@@ -98,7 +98,7 @@ sources/
 ```bash
 .venv/bin/python -m src.cli populate \
   --sources ./sources \
-  --template samples/check_back_template.xlsx \
+  --template samples/check_back_template_v1.xlsx \
   --out output/portfolio_check_back.xlsx
 ```
 
@@ -107,7 +107,7 @@ sources/
 ```bash
 .venv/bin/python -m src.cli populate \
   --sources ./path/to/new-customer \
-  --template samples/check_back_template.xlsx \
+  --template samples/check_back_template_v1.xlsx \
   --mode append \
   --out output/portfolio_updated.xlsx
 ```
@@ -136,7 +136,7 @@ cd dashboard
 
 | Upload contains | Mode |
 |-----------------|------|
-| `Entitled Lic Calling` or `Provisioned/Entitled Lic Calling`, `(G/Y/R)` | **Check Back** — Adoption Health |
+| `Provisioned/Entitled Lic Calling`, `(G/Y/R)` | **Check Back** — Adoption Health |
 | `Collab AOV`, `Renewal Fiscal Qtr` | **Renewal** — full renewal analytics |
 | Other | Generic table + KPIs |
 

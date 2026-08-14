@@ -33,6 +33,9 @@ columns:
   "Sub start date (MM/DD/YYYY)":
     action: sub_term_years
 
+  "(G/Y/R)":
+    action: gyr_letter
+
   " (G/Y/R)":
     action: gyr_letter
 

@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 # Start local server (or reuse one on 8765) and open the dashboard in your browser.
 cd "$(dirname "$0")"
+ROOT="$(cd .. && pwd)"
 "./sync-default-workbook.sh" 2>/dev/null || echo "Note: baseline not synced — run ./sync-default-workbook.sh or upload a workbook"
+
+export CHECK_BACK_XLSX="${CHECK_BACK_XLSX:-$ROOT/output/Check_Back_standardized.xlsx}"
+if [[ "$CHECK_BACK_XLSX" != /* ]]; then
+  export CHECK_BACK_XLSX="$ROOT/$CHECK_BACK_XLSX"
+fi
+
+PY="python3"
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  PY="$ROOT/.venv/bin/python"
+fi
 
 URL="http://127.0.0.1:8765/index.html"
 PID="$(lsof -Pi :8765 -sTCP:LISTEN -t 2>/dev/null | head -1)"
@@ -16,8 +27,9 @@ else
       break
     fi
   done
-  echo "Starting server on port $PORT..."
-  python3 -m http.server "$PORT" >/dev/null 2>&1 &
+  export PORT
+  echo "Starting dashboard server on port $PORT (save target: $CHECK_BACK_XLSX)..."
+  "$PY" "$ROOT/dashboard/serve_with_save.py" >/dev/null 2>&1 &
   sleep 0.5
   URL="http://127.0.0.1:${PORT}/index.html"
 fi

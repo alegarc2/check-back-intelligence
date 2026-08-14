@@ -26,7 +26,7 @@ CORE_SLIDE_FIELDS = (
     "Sub start date (MM/DD/YYYY)",
     "Collab AE/SE",
     "CSM Engagement Model (linked)",
-    " (G/Y/R)",
+    "(G/Y/R)",
 )
 
 STRUCTURED_SLIDE_FIELDS = (

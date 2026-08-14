@@ -59,13 +59,14 @@ class BiaWorkbookMapper {
   static rowToSlide(row) {
     const enriched = NoteParser.enrichRowFromNotes(row);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
     const subTerm =
       enriched['Sub Term'] ||
       enriched['Subscription dates'] ||
       enriched['Sub start date (MM/DD/YYYY)'] ||
       '';
     const timeline = BiaSanitizer.parseTimelineFromTerm(subTerm);
-    const gyr = enriched[GYR_COL] || enriched['Final Determination'] || '';
+    const gyr = enriched[GYR_COL] || enriched[LEGACY_GYR_COL] || enriched['Final Determination'] || '';
     const trends = [];
     if (!BiaSanitizer.isEmptyVal(enriched['Trend active users 90d'])) {
       trends.push(String(enriched['Trend active users 90d']).trim());
@@ -163,6 +164,7 @@ class BiaWorkbookMapper {
 
   static applyBiaFields(out, deck, wb) {
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
     const s = deck.subscription || {};
     const p = deck.provisioning || {};
     const f = deck.features || {};
@@ -174,7 +176,7 @@ class BiaWorkbookMapper {
 
     set('Opportunity Name', deck.customerName);
     set('Customer org id', deck.orgId);
-    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow['Final Determination'] || '');
+    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow[LEGACY_GYR_COL] || wbRow['Final Determination'] || '');
     set('TCV $', s.tcv || wbRow['TCV $']);
     set('AAR $', s.aar || wbRow['AAR $']);
     set('Sub #', s.sub || wbRow['Sub #']);

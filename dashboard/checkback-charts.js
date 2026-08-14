@@ -2,7 +2,10 @@
  * Check Back / adoption health KPIs, filters, and charts.
  */
 const CheckBackDashboard = (function () {
-  const GYR_COL = ' (G/Y/R)';
+  const GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R)';
+  const LEGACY_GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || ' (G/Y/R)';
   const LICENSE_COL =
     (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LICENSE_COL) ||
     'Provisioned/Entitled Lic Calling';
@@ -23,7 +26,7 @@ const CheckBackDashboard = (function () {
     'SL2',
     'TCV $',
     'Sub #',
-    'Entitled Lic Calling',
+    LICENSE_COL,
     'Active Lic Calling',
     'CSM name',
     'Migrating from',

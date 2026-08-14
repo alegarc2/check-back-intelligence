@@ -71,7 +71,7 @@ PILOT_ROWS: dict[str, dict[str, Any]] = {
         ),
         "Data gathered by": "Jeremy Abrams",
         "Data gathered date": "2026-05-19",
-        " (G/Y/R)": "G",
+        "(G/Y/R)": "G",
     },
 }
 

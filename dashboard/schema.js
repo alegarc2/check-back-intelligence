@@ -4,6 +4,7 @@
 const SchemaDashboard = (function () {
   const CHECKBACK_MARKERS = [
     'Provisioned/Entitled Lic Calling',
+    '(G/Y/R)',
     'Entitled Lic Calling',
     'Providioned Lic Calling',
     ' (G/Y/R)',

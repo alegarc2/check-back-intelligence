@@ -8,7 +8,8 @@ CheckBack.Dashboard = CheckBack.Dashboard || {};
  * Shared column names and dashboard constants.
  */
 CheckBack.Dashboard.Constants = {
-  GYR_COL: ' (G/Y/R)',
+  GYR_COL: '(G/Y/R)',
+  LEGACY_GYR_COL: ' (G/Y/R)',
   /** Merged license column (provisioned/entitled pairs). Legacy split cols still supported in parsers. */
   LICENSE_COL: 'Provisioned/Entitled Lic Calling',
   LEGACY_ENTITLED_COL: 'Entitled Lic Calling',
@@ -25,7 +26,7 @@ CheckBack.Dashboard.Constants = {
   ],
   PORTFOLIO_COLUMN_PREFER: [
     'Opportunity Name',
-    ' (G/Y/R)',
+    '(G/Y/R)',
     'Customer org id',
     'TCV $',
     'AAR $',
@@ -33,14 +34,63 @@ CheckBack.Dashboard.Constants = {
     'Partner',
     'SL2',
     'Sub #',
-    'Entitled Lic Calling',
-    'Providioned Lic Calling',
+    'Provisioned/Entitled Lic Calling',
     'Active Lic Calling',
+  ],
+  /** Canonical export order from samples/check_back_template_v1.xlsx */
+  TEMPLATE_COLUMN_ORDER: [
+    'Opportunity Name',
+    'Opportunity (linked)',
+    'SL2',
+    'TCV $',
+    'Closed on (MM/YY)',
+    'Competitor',
+    'Migrating from',
+    'Migrating to',
+    'Partner',
+    'CSM Engagement Model (linked)',
+    'CSM name',
+    'Sub #',
+    'Sub Term',
+    'Sub start date (MM/DD/YYYY)',
+    'Add-ons included or not',
+    'Calling Setup Assist included (Y/N)',
+    'Provisioned/Entitled Lic Calling',
+    'Active Lic Calling',
+    'Customer org id',
+    'Notes from Calling Analytics',
+    'Notes from provisioned features',
+    'CCEP trial (Y/N)',
+    '(G/Y/R)',
+    'TAC/BEMS',
+    'AAR $',
+    'Collab AE/SE',
+    'Service lines',
+    'Sub term (months)',
+    'Subscription dates',
+    'Platforms',
+    'Trend active users 90d',
+    'Trend call volume 90d',
+    'Lic Professional (used/entitled)',
+    'Lic Standard (used/entitled)',
+    'Lic Workspace (used/entitled)',
+    'Active % of provisioned',
+    'External calls',
+    'Meetings usage',
+    'Messaging usage',
+    'Auto Attendant count',
+    'Hunt Groups count',
+    'Call Queues count',
+    'Connected-UC (Y/N)',
+    'Virtual Lines count',
+    'Data gathered by',
+    'Data gathered date',
+    'Salesforce URL',
   ],
   BIA_CANONICAL_COLS: new Set([
     'Opportunity Name',
     'Customer org id',
-    ' (G/Y/R)',
+    '(G/Y/R)',
     'TCV $',
     'AAR $',
     'Sub #',
@@ -922,13 +972,14 @@ class BiaWorkbookMapper {
   static rowToSlide(row) {
     const enriched = NoteParser.enrichRowFromNotes(row);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
     const subTerm =
       enriched['Sub Term'] ||
       enriched['Subscription dates'] ||
       enriched['Sub start date (MM/DD/YYYY)'] ||
       '';
     const timeline = BiaSanitizer.parseTimelineFromTerm(subTerm);
-    const gyr = enriched[GYR_COL] || enriched['Final Determination'] || '';
+    const gyr = enriched[GYR_COL] || enriched[LEGACY_GYR_COL] || enriched['Final Determination'] || '';
     const trends = [];
     if (!BiaSanitizer.isEmptyVal(enriched['Trend active users 90d'])) {
       trends.push(String(enriched['Trend active users 90d']).trim());
@@ -1026,6 +1077,7 @@ class BiaWorkbookMapper {
 
   static applyBiaFields(out, deck, wb) {
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
+    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
     const s = deck.subscription || {};
     const p = deck.provisioning || {};
     const f = deck.features || {};
@@ -1037,7 +1089,7 @@ class BiaWorkbookMapper {
 
     set('Opportunity Name', deck.customerName);
     set('Customer org id', deck.orgId);
-    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow['Final Determination'] || '');
+    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow[LEGACY_GYR_COL] || wbRow['Final Determination'] || '');
     set('TCV $', s.tcv || wbRow['TCV $']);
     set('AAR $', s.aar || wbRow['AAR $']);
     set('Sub #', s.sub || wbRow['Sub #']);
@@ -1740,6 +1792,7 @@ CheckBack.Dashboard.BiaSlideEditor = BiaSlideEditor;
 const SchemaDashboard = (function () {
   const CHECKBACK_MARKERS = [
     'Provisioned/Entitled Lic Calling',
+    '(G/Y/R)',
     'Entitled Lic Calling',
     'Providioned Lic Calling',
     ' (G/Y/R)',
@@ -1923,7 +1976,10 @@ const SchemaDashboard = (function () {
  * Check Back / adoption health KPIs, filters, and charts.
  */
 const CheckBackDashboard = (function () {
-  const GYR_COL = ' (G/Y/R)';
+  const GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R)';
+  const LEGACY_GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || ' (G/Y/R)';
   const LICENSE_COL =
     (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LICENSE_COL) ||
     'Provisioned/Entitled Lic Calling';
@@ -1944,7 +2000,7 @@ const CheckBackDashboard = (function () {
     'SL2',
     'TCV $',
     'Sub #',
-    'Entitled Lic Calling',
+    LICENSE_COL,
     'Active Lic Calling',
     'CSM name',
     'Migrating from',
@@ -4497,7 +4553,7 @@ const AccountInsight = (function () {
       _ctx.rowKey = Editor.rowKey(_ctx.row);
     }
     _ctx.dirty = false;
-    setStatus('Saved — use Full export or Save customer data to download .xlsx');
+    setStatus('Saved — click Save customer data to write changes to the workbook');
     if (typeof _ctx.onSaved === 'function') _ctx.onSaved(edits);
     return true;
   }
@@ -4704,8 +4760,6 @@ const PanelCache = (function () {
     ['Trend call volume 90d', 'Subscription Review'],
     ['Salesforce URL', 'Subscription Review'],
     ['Provisioned/Entitled Lic Calling', 'Provisioning & Usage'],
-    ['Entitled Lic Calling', 'Provisioning & Usage'],
-    ['Providioned Lic Calling', 'Provisioning & Usage'],
     ['Active Lic Calling', 'Provisioning & Usage'],
     ['Notes from Calling Analytics', 'Provisioning & Usage'],
     ['Notes from provisioned features', 'Provisioning & Usage'],
@@ -4838,13 +4892,41 @@ const PanelCache = (function () {
  * Export in-memory dashboard customer rows (portfolio / data table) to xlsx.
  */
 const DashboardExport = (function () {
-  function exportColumns(columns) {
-    return columns.filter(
-      (c) =>
-        c &&
-        c !== '_biaSlideOnly' &&
-        (!String(c).startsWith('_') || c === '_addonsPtu')
+  /** Dashboard-only fields — never written back to the workbook file. */
+  const EXPORT_SKIP = new Set([
+    'Entitled Lic Calling',
+    'Providioned Lic Calling',
+    'Numbers assigned',
+    'Locations main number',
+    'Success Portal',
+    'Control Hub Helpdesk',
+    ' (G/Y/R)',
+    'Final Determination',
+    'Recommended Actions',
+    'CSM / Account Team notes',
+    'Trial',
+    'Total calls',
+    'Answered calls %',
+    'Calls busiest hour',
+  ]);
+
+  function templateColumnOrder() {
+    return (
+      (typeof CheckBack !== 'undefined' &&
+        CheckBack.Dashboard.Constants &&
+        CheckBack.Dashboard.Constants.TEMPLATE_COLUMN_ORDER) ||
+      []
     );
+  }
+
+  function isExportSkipped(col) {
+    if (!col || col === '_biaSlideOnly') return true;
+    if (String(col).startsWith('_')) return true;
+    return EXPORT_SKIP.has(col);
+  }
+
+  function exportColumns(columns) {
+    return (columns || []).filter((c) => c && !isExportSkipped(c));
   }
 
   function cellValue(val) {
@@ -4853,10 +4935,19 @@ const DashboardExport = (function () {
     return val;
   }
 
+  function exportCellValue(row, col) {
+    if (col === '(G/Y/R)') {
+      const current = row['(G/Y/R)'];
+      if (current != null && String(current).trim() !== '') return cellValue(current);
+      return cellValue(row[' (G/Y/R)']);
+    }
+    return cellValue(row[col]);
+  }
+
   function rowForExport(row, columns) {
     const out = {};
     columns.forEach((col) => {
-      out[col] = cellValue(row[col]);
+      out[col] = exportCellValue(row, col);
     });
     return out;
   }
@@ -4871,8 +4962,7 @@ const DashboardExport = (function () {
     const seen = new Set(cols);
     (rows || []).forEach((row) => {
       Object.keys(row || {}).forEach((k) => {
-        if (!k || seen.has(k)) return;
-        if (k.startsWith('_') && k !== '_addonsPtu') return;
+        if (!k || seen.has(k) || isExportSkipped(k)) return;
         seen.add(k);
         cols.push(k);
       });
@@ -4880,24 +4970,84 @@ const DashboardExport = (function () {
     return cols;
   }
 
-  function exportCustomerData(rows, columns, displayName) {
+  function orderExportColumns(columns, rows, preferredOrder) {
+    const template = templateColumnOrder();
+    if (template.length) return template.slice();
+
+    const available = new Set(mergeExportColumns(columns, rows));
+    const ordered = [];
+    const sequences = [];
+    if (preferredOrder && preferredOrder.length) sequences.push(preferredOrder);
+    sequences.forEach((seq) => {
+      exportColumns(seq).forEach((col) => {
+        if (available.has(col) && !ordered.includes(col)) {
+          ordered.push(col);
+          available.delete(col);
+        }
+      });
+    });
+    mergeExportColumns(columns, rows).forEach((col) => {
+      if (available.has(col)) ordered.push(col);
+    });
+    return ordered;
+  }
+
+  function buildCustomerWorkbook(rows, columns, preferredOrder) {
     if (typeof XLSX === 'undefined') throw new Error('Spreadsheet library not loaded');
     if (!rows || !rows.length) throw new Error('No customer rows in the dashboard table');
     const workbookRows = rows.filter((r) => !r._biaSlideOnly);
     const exportRows = workbookRows.length ? workbookRows : rows;
-    const cols = mergeExportColumns(columns, exportRows);
+    const cols = orderExportColumns(columns, exportRows, preferredOrder);
     if (!cols.length) throw new Error('No columns to export');
     const body = exportRows.map((row) => rowForExport(row, cols));
     const ws = XLSX.utils.json_to_sheet(body, { header: cols });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Customer Data');
+    return wb;
+  }
+
+  function exportCustomerData(rows, columns, displayName, preferredOrder) {
+    const wb = buildCustomerWorkbook(rows, columns, preferredOrder);
     XLSX.writeFile(wb, filenameFromDisplay(displayName));
+  }
+
+  async function saveCustomerDataToServer(rows, columns, preferredOrder) {
+    const wb = buildCustomerWorkbook(rows, columns, preferredOrder);
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const resp = await fetch('/api/save-workbook', {
+      method: 'POST',
+      headers: {
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      body: buf,
+    });
+    let payload = {};
+    try {
+      payload = await resp.json();
+    } catch (_err) {
+      payload = {};
+    }
+    if (!resp.ok) {
+      throw new Error(payload.error || resp.statusText || 'Save failed');
+    }
+    return payload;
+  }
+
+  async function fetchWorkbookInfo() {
+    const resp = await fetch('/api/workbook-info');
+    if (!resp.ok) return null;
+    return resp.json();
   }
 
   return {
     exportColumns,
     mergeExportColumns,
+    orderExportColumns,
+    buildCustomerWorkbook,
     exportCustomerData,
+    saveCustomerDataToServer,
+    fetchWorkbookInfo,
     filenameFromDisplay,
   };
 })();

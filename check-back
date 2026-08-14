@@ -25,6 +25,10 @@ else
   exit 1
 fi
 WORKBOOK="${CHECK_BACK_XLSX:-$ROOT/output/Check_Back_standardized.xlsx}"
+if [[ "$WORKBOOK" != /* ]]; then
+  WORKBOOK="$ROOT/$WORKBOOK"
+fi
+export CHECK_BACK_XLSX="$WORKBOOK"
 
 export PYTHONPATH="${ROOT}${PYTHONPATH:+:$PYTHONPATH}"
 

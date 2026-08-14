@@ -400,7 +400,7 @@
     <div class="header-actions"><span id="modeBadge" style="font-size:12px;padding:4px 12px;border-radius:20px;background:rgba(0,188,235,.15);border:1px solid rgba(0,188,235,.3);color:var(--accent-blue);"></span>
       <span id="fileNameDisplay" style="font-size:13px;color:var(--text-muted);"></span>
       <span id="localDashboardActions" class="header-local-actions" style="display:none;align-items:center;gap:8px;">
-        <button class="btn btn-primary btn-sm" type="button" onclick="saveCustomerDataXlsx()" title="Download all customer rows and columns from the dashboard table">💾 Save customer data</button>
+        <button class="btn btn-primary btn-sm" id="saveCustomerDataBtn" type="button" onclick="saveCustomerDataXlsx()" title="Save all customer rows back to the configured workbook">💾 Save customer data</button>
         <button class="btn btn-outline btn-sm" type="button" onclick="exportPanelSidecar()" title="Subscription / Provisioning / Feature Use columns only">⬇️ Export panels</button>
         <label class="btn btn-outline btn-sm" style="cursor:pointer;" title="Merge panel sidecar xlsx into current data">📥 Import panels<input type="file" id="panelFileInput" accept=".xlsx,.xls" style="display:none;"></label>
       </span>
@@ -896,7 +896,7 @@ function ensurePdfLibs(){
 let dashboardMode='renewal';
 // ═══════════════════════════════════════════
 let rawData=[],filteredData=[],activeFilters={},sortCol=null,sortDir='asc';
-let currentPage=1,pageSize=25,visibleColumns=[],allColumns=[],charts={};
+let currentPage=1,pageSize=25,visibleColumns=[],allColumns=[],workbookColumnOrder=[],charts={};
 let tableSearchTerm='';
 let drillData=[],drillFilteredData=[],drillPage=1,drillPageSize=20;
 let drillSortCol=null,drillSortDir='asc',drillSearchTerm='';
@@ -1012,6 +1012,15 @@ function setupUpload(){
   }
   const localActions=document.getElementById('localDashboardActions');
   if(localActions)localActions.style.display=IS_LOCAL_DASHBOARD?'inline-flex':'none';
+  if(IS_LOCAL_DASHBOARD&&typeof DashboardExport!=='undefined'&&DashboardExport.fetchWorkbookInfo){
+    DashboardExport.fetchWorkbookInfo().then(info=>{
+      if(!info||!info.saveEnabled)return;
+      const btn=document.getElementById('saveCustomerDataBtn');
+      if(btn&&info.path){
+        btn.title='Save all customer rows to '+info.path;
+      }
+    }).catch(()=>{});
+  }
   const reloadBtn=document.getElementById('reloadDefaultBtn');
   if(reloadBtn)reloadBtn.style.display=IS_LOCAL_DASHBOARD?'inline-flex':'none';
   const drop=document.getElementById('dropZone');
@@ -1050,6 +1059,25 @@ function showUploadFallback(){
   document.getElementById('uploadZone').style.display='flex';
 }
 
+function captureWorkbookColumnOrder(json){
+  if(!json||!json.length)return [];
+  const template=(typeof CheckBack!=='undefined'&&CheckBack.Dashboard.Constants&&CheckBack.Dashboard.Constants.TEMPLATE_COLUMN_ORDER)||[];
+  if(template.length)return template.slice();
+  return DashboardExport.exportColumns(Object.keys(json[0]||{}));
+}
+
+function syncWorkbookColumnOrder(){
+  if(typeof DashboardExport==='undefined')return;
+  const merged=DashboardExport.mergeExportColumns(allColumns,rawData);
+  const seen=new Set(workbookColumnOrder);
+  merged.forEach((col)=>{
+    if(!seen.has(col)){
+      workbookColumnOrder.push(col);
+      seen.add(col);
+    }
+  });
+}
+
 function resetDashboardForNewWorkbook(opts){
   opts=opts||{};
   if(typeof AccountInsight!=='undefined'&&AccountInsight.close)AccountInsight.close();
@@ -1062,7 +1090,7 @@ function resetDashboardForNewWorkbook(opts){
   Object.values(drillMiniCharts).forEach(c=>{try{if(c)c.destroy();}catch(_){}});
   drillMiniCharts={};
   rawData=[];filteredData=[];activeFilters={};
-  allColumns=[];visibleColumns=[];
+  allColumns=[];visibleColumns=[];workbookColumnOrder=[];
   currentPage=1;tableSearchTerm='';
   sortCol=null;sortDir='asc';
   drillData=[];drillFilteredData=[];drillPage=1;
@@ -1086,6 +1114,7 @@ function buildDashboardFromParsed(parsed,displayName,opts){
   if(!json.length){hideLoading();alert('No data found in spreadsheet.');return;}
   resetDashboardForNewWorkbook(opts);
   dashboardMode=parsed.mode;
+  workbookColumnOrder=captureWorkbookColumnOrder(json);
   updateLoading('Building dashboard ('+dashboardMode+')...');
   setTimeout(()=>{
     try{
@@ -1225,21 +1254,44 @@ function refreshAllColumnsFromRows(){
     });
     allColumns=cols;
   }
+  syncWorkbookColumnOrder();
 }
 
 function saveCustomerDataXlsx(){
-  ensureCdnLibs().then(()=>{
+  ensureCdnLibs().then(async ()=>{
     if(!verifyDashboardDeps())return;
     if(!rawData.length){alert('Load customer data in the dashboard first.');return;}
     if(typeof AccountInsight!=='undefined'&&AccountInsight.isOverlayOpen()&&AccountInsight.flushPendingEdits()===false){
-      alert('Slide edits could not be saved — fix the error on the slide toolbar, then export again.');
+      alert('Slide edits could not be saved — fix the error on the slide toolbar, then try again.');
       return;
     }
     refreshAllColumnsFromRows();
+    syncWorkbookColumnOrder();
+    const btn=document.getElementById('saveCustomerDataBtn');
+    const prevLabel=btn?btn.textContent:'';
+    if(btn){btn.disabled=true;btn.textContent='Saving…';}
     try{
-      DashboardExport.exportCustomerData(rawData, allColumns, currentWorkbookDisplayName());
+      if(typeof DashboardExport.saveCustomerDataToServer==='function'){
+        const result=await DashboardExport.saveCustomerDataToServer(rawData, allColumns, workbookColumnOrder);
+        alert('Saved to '+(result.path||'workbook'));
+      }else{
+        DashboardExport.exportCustomerData(rawData, allColumns, currentWorkbookDisplayName(), workbookColumnOrder);
+        alert('Downloaded a copy (local save server unavailable).');
+      }
     }catch(err){
-      alert('Save failed: '+err.message);
+      const msg=String(err&&err.message||err||'Save failed');
+      if(/fetch|network|Failed to fetch|404|405/i.test(msg)){
+        try{
+          DashboardExport.exportCustomerData(rawData, allColumns, currentWorkbookDisplayName(), workbookColumnOrder);
+          alert('Local save server unavailable — downloaded a copy instead.');
+        }catch(fallbackErr){
+          alert('Save failed: '+fallbackErr.message);
+        }
+      }else{
+        alert('Save failed: '+msg);
+      }
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent=prevLabel||'💾 Save customer data';}
     }
   }).catch(err=>alert('Libraries failed: '+err.message));
 }

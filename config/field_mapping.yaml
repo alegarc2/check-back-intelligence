@@ -7,7 +7,7 @@ install_base_to_checkback:
   CSM_NAME: "CSM name"
   SFDC_OPPORTUNITY_NAME: "Opportunity (linked)"
   Lifecycle Stage_Current: "Notes from provisioned features"
-  Risk2_0_current: " (G/Y/R)"
+  Risk2_0_current: "(G/Y/R)"
 
 risk_to_gyr:
   Low: G
@@ -18,10 +18,10 @@ risk_to_gyr:
 # Fields requiring manual review when mapped from install base
 review_flags:
   "Term End Date": "Sub start date (MM/DD/YYYY)"
-  "Webex Calling MT Provisioned Seats": "Providioned Lic Calling"
-  "Webex Calling DI Provisioned Seats": "Providioned Lic Calling"
-  "Cloud Calling Billed Seats": "Entitled Lic Calling"
-  "Total Billed Seats": "Entitled Lic Calling"
+  "Webex Calling MT Provisioned Seats": "Provisioned/Entitled Lic Calling"
+  "Webex Calling DI Provisioned Seats": "Provisioned/Entitled Lic Calling"
+  "Cloud Calling Billed Seats": "Provisioned/Entitled Lic Calling"
+  "Total Billed Seats": "Provisioned/Entitled Lic Calling"
 
 # PDF filename patterns → extractor + target fields
 pdf_patterns:
@@ -30,7 +30,7 @@ pdf_patterns:
     fields: [Opportunity Name, "TCV $", Partner, "Closed on (MM/YY)", Competitor]
   - pattern: "(?i)subscription.*workbench"
     extractor: subscription
-    fields: ["Sub #", "Sub start date (MM/DD/YYYY)", "Entitled Lic Calling"]
+    fields: ["Sub #", "Sub start date (MM/DD/YYYY)", "Provisioned/Entitled Lic Calling"]
   - pattern: "(?i)accountinfo"
     extractor: accountinfo
     fields: ["Customer org id"]
@@ -63,33 +63,31 @@ check_back_columns:
   - "CSM Engagement Model (linked)"
   - "CSM name"
   - "Sub #"
+  - Sub Term
   - "Sub start date (MM/DD/YYYY)"
   - "Add-ons included or not"
   - "Calling Setup Assist included (Y/N)"
-  - "Entitled Lic Calling"
-  - "Providioned Lic Calling"
+  - "Provisioned/Entitled Lic Calling"
   - "Active Lic Calling"
   - "Customer org id"
   - "Notes from Calling Analytics"
   - "Notes from provisioned features"
   - "CCEP trial (Y/N)"
-  - " (G/Y/R)"
+  - "(G/Y/R)"
   - TAC/BEMS
-  # PowerPoint Business Insight (see upgrade_schema.py)
   - "AAR $"
   - Collab AE/SE
   - Service lines
   - Sub term (months)
+  - Subscription dates
+  - Platforms
   - Trend active users 90d
   - Trend call volume 90d
   - Lic Professional (used/entitled)
   - Lic Standard (used/entitled)
   - Lic Workspace (used/entitled)
   - Active % of provisioned
-  - Total calls
   - External calls
-  - Answered calls %
-  - Calls busiest hour
   - Meetings usage
   - Messaging usage
   - Auto Attendant count
@@ -97,10 +95,9 @@ check_back_columns:
   - Call Queues count
   - Connected-UC (Y/N)
   - Virtual Lines count
-  - Recommended Actions
-  - CSM / Account Team notes
   - Data gathered by
   - Data gathered date
+  - Salesforce URL
 
 # PowerPoint slide section → spreadsheet columns
 powerpoint_sections:
@@ -120,11 +117,10 @@ powerpoint_sections:
     - Service lines
   provisioning_usage:
     - "Customer org id"
-    - "Entitled Lic Calling"
+    - "Provisioned/Entitled Lic Calling"
     - Lic Professional (used/entitled)
     - Lic Standard (used/entitled)
     - Lic Workspace (used/entitled)
-    - "Providioned Lic Calling"
     - "Active Lic Calling"
     - Active % of provisioned
     - Total calls
@@ -147,4 +143,4 @@ powerpoint_sections:
     - "Notes from provisioned features"
     - TAC/BEMS
   health:
-    - " (G/Y/R)"
+    - "(G/Y/R)"

@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK = PROJECT_ROOT / "output" / "Check_Back_standardized.xlsx"
-DEFAULT_TEMPLATE = PROJECT_ROOT / "samples" / "check_back_template.xlsx"
+DEFAULT_TEMPLATE = PROJECT_ROOT / "samples" / "check_back_template_v1.xlsx"
 
 
 def _cmd_populate(args: argparse.Namespace) -> int:
@@ -193,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_pop.add_argument("--out", "-o", default="output/check_back_filled.xlsx")
     p_pop.add_argument("--staging", default="staging", help="JSON staging directory")
-    p_pop.add_argument("--template", "-t", default="samples/check_back_template.xlsx")
+    p_pop.add_argument("--template", "-t", default="samples/check_back_template_v1.xlsx")
     p_pop.add_argument(
         "--account",
         help="Account/opportunity label when sources are a flat folder (not subfolders)",
@@ -231,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     p_map.set_defaults(func=_cmd_map_install_base)
 
     p_build = sub.add_parser("build-workbook", help="Build xlsx from staging JSON")
-    p_build.add_argument("--template", "-t", default="samples/check_back_template.xlsx")
+    p_build.add_argument("--template", "-t", default="samples/check_back_template_v1.xlsx")
     p_build.add_argument("--out", "-o", default="output/check_back_filled.xlsx")
     p_build.add_argument("--staging", "-p", default="staging")
     p_build.add_argument("--install-base", help="Optional install base xlsx")

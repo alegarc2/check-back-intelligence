@@ -9,35 +9,11 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 
-HEADERS = [
-    "Opportunity Name",
-    "Opportunity (linked)",
-    "SL2",
-    "TCV $",
-    "Closed on (MM/YY)",
-    "Competitor",
-    "Migrating from",
-    "Migrating to",
-    "Partner",
-    "CSM Engagement Model (linked)",
-    "CSM name",
-    "Sub #",
-    "Sub Term",
-    "Add-ons included or not",
-    "Calling Setup Assist included (Y/N)",
-    "Entitled Lic Calling",
-    "Providioned Lic Calling",
-    "Active Lic Calling",
-    "Customer org id",
-    "Notes from Calling Analytics",
-    "Notes from provisioned features",
-    "CCEP trial (Y/N)",
-    " (G/Y/R)",
-    "TAC/BEMS",
-]
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
-SECTION = "Business Insight"
-FILL = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+from src.workbook.check_back_template import CHECK_BACK_HEADERS  # noqa: E402
+
 HDR_FILL = PatternFill(start_color="0D1526", end_color="0D1526", fill_type="solid")
 HDR_FONT = Font(bold=True, color="94A3B8", size=10)
 
@@ -48,63 +24,58 @@ DEMO_ROWS = [
         "TCV $": 850000,
         "Partner": "Demo Partner LLC",
         "Sub #": "Sub900001",
-        "Entitled Lic Calling": "PL: 4200, WS: 1750",
-        "Providioned Lic Calling": "PL: 283, WS: 1200",
-        "Active Lic Calling": "1180 active",
-        " (G/Y/R)": "G",
-        "Notes from Calling Analytics": "Sample row — upload your own Check Back workbook to analyze real accounts.",
+        "Provisioned/Entitled Lic Calling": "Professional 283/4,200; Workspace 1,200/1,750",
+        "Active Lic Calling": "420",
+        "(G/Y/R)": "G",
+        "Customer org id": "707f1259-feb5-4ea2-9a06-05b36402f6cf",
+        "Platforms": "Webex",
     },
     {
-        "Opportunity Name": "Demo Hospital System (sample)",
-        "SL2": "USPS",
+        "Opportunity Name": "Demo Health System (sample)",
+        "SL2": "US Commercial",
         "TCV $": 1200000,
-        "Partner": "Example Integrator",
+        "Partner": "Demo Partner LLC",
         "Sub #": "Sub900002",
-        "Entitled Lic Calling": "PL: 1860, WS: 775",
-        "Providioned Lic Calling": "PL: 1326, WS: 374",
-        "Active Lic Calling": "1300",
-        " (G/Y/R)": "Y",
-        "Notes from Calling Analytics": "Workspace under-utilized; Professional near target.",
+        "Provisioned/Entitled Lic Calling": "Professional 1,326/1,860; Workspace 374/775",
+        "Active Lic Calling": "890",
+        "(G/Y/R)": "Y",
+        "Customer org id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "Platforms": "Webex",
     },
     {
-        "Opportunity Name": "Demo County Government (sample)",
-        "SL2": "US SLED",
+        "Opportunity Name": "Demo Manufacturing Co (sample)",
+        "SL2": "EMEA__UKI",
         "TCV $": 640000,
-        "Partner": "Public Sector Partner",
+        "Partner": "Demo Partner GmbH",
         "Sub #": "Sub900003",
-        "Entitled Lic Calling": "PL: 1800, WS: 750",
-        "Providioned Lic Calling": "PL: 129, WS: 57",
-        "Active Lic Calling": "158",
-        " (G/Y/R)": "R",
-        "Notes from Calling Analytics": "Low adoption vs entitled licenses.",
+        "Provisioned/Entitled Lic Calling": "Professional 129/1,800; Workspace 57/750",
+        "Active Lic Calling": "95",
+        "(G/Y/R)": "R",
+        "Customer org id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+        "Platforms": "Webex",
     },
 ]
 
 
-def build_demo_workbook(dest: Path) -> None:
+def main() -> None:
+    dest = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "samples" / "check_back_demo.xlsx"
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Sheet1"
-
-    for col, name in enumerate(HEADERS, start=1):
-        ws.cell(1, col, value=SECTION if col == 1 else "")
-        ws.cell(1, col).fill = FILL
-        ws.cell(2, col, value=name)
-        ws.cell(2, col).fill = HDR_FILL
-        ws.cell(2, col).font = HDR_FONT
-        ws.cell(2, col).alignment = Alignment(wrap_text=True, vertical="top")
-
-    for row_idx, row_data in enumerate(DEMO_ROWS, start=3):
-        for col, name in enumerate(HEADERS, start=1):
-            val = row_data.get(name)
-            if val is not None:
-                ws.cell(row_idx, col, value=val)
-
+    ws.title = "Customer Data"
+    for col, name in enumerate(CHECK_BACK_HEADERS, start=1):
+        cell = ws.cell(1, col, value=name)
+        cell.fill = HDR_FILL
+        cell.font = HDR_FONT
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+    for r_idx, row in enumerate(DEMO_ROWS, start=2):
+        for col, name in enumerate(CHECK_BACK_HEADERS, start=1):
+            val = row.get(name)
+            if val not in (None, ""):
+                ws.cell(r_idx, col, value=val)
     dest.parent.mkdir(parents=True, exist_ok=True)
     wb.save(dest)
+    print(f"Wrote {dest}")
 
 
 if __name__ == "__main__":
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("check_back_default.xlsx")
-    build_demo_workbook(out)
-    print(f"Wrote demo workbook → {out}")
+    main()

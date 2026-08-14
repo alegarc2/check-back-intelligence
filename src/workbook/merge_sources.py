@@ -38,8 +38,8 @@ def enrich_row_from_notes(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def clear_data_rows(ws, keep_through_row: int = 2) -> None:
-    """Remove existing data rows; keep section + header rows."""
+def clear_data_rows(ws, keep_through_row: int = 1) -> None:
+    """Remove existing data rows; keep header row(s)."""
     if ws.max_row > keep_through_row:
         ws.delete_rows(keep_through_row + 1, ws.max_row - keep_through_row)
 
@@ -76,11 +76,11 @@ def build_workbook(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(staging_dir) if staging_dir else None
 
-    wb, col_index = load_template(template_path)
+    wb, col_index, header_row = load_template(template_path)
     ws = wb.active
 
     if mode == "fresh":
-        clear_data_rows(ws)
+        clear_data_rows(ws, keep_through_row=header_row)
 
     if staging_dir:
         for row, low in rows_from_customers_json(staging_dir):
@@ -115,7 +115,7 @@ def build_workbook(
             count += 1
         ib.close()
 
-    if ws.max_row <= 2 and account_filter:
+    if ws.max_row <= header_row and account_filter:
         append_row(ws, col_index, {"Opportunity Name": account_filter})
 
     wb.save(output_path)
@@ -127,10 +127,13 @@ def validate_workbook(path: str | Path) -> list[dict[str, str]]:
     """Return validation issues for Check Back rows."""
     import openpyxl
 
+    from src.workbook.check_back_template import detect_header_row
+
     issues: list[dict[str, str]] = []
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     ws = wb.active
-    headers = [c.value for c in ws[2]]
+    header_row = detect_header_row(ws)
+    headers = [c.value for c in ws[header_row]]
     col = {h: i for i, h in enumerate(headers) if h}
 
     def num_from(s: Any) -> float:
@@ -169,7 +172,7 @@ def validate_workbook(path: str | Path) -> list[dict[str, str]]:
         )
         return ent, prov
 
-    for r_idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+    for r_idx, row in enumerate(ws.iter_rows(min_row=header_row + 1, values_only=True), start=header_row + 1):
         if not any(row):
             continue
         name = row[col.get("Opportunity Name", 0)] if "Opportunity Name" in col else ""

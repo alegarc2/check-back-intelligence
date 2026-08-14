@@ -42,8 +42,6 @@ PANEL_COLUMNS: list[tuple[str, str]] = [
     }],
     # Provisioning & Usage
     ("Provisioned/Entitled Lic Calling", "Provisioning & Usage"),
-    ("Entitled Lic Calling", "Provisioning & Usage"),
-    ("Providioned Lic Calling", "Provisioning & Usage"),
     ("Active Lic Calling", "Provisioning & Usage"),
     ("Notes from Calling Analytics", "Provisioning & Usage"),
     ("Notes from provisioned features", "Provisioning & Usage"),

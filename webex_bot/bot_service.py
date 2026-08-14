@@ -15,7 +15,8 @@ from .bot_tunnel import build_dashboard_link, dashboard_base_url
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE_XLSX = ROOT / "output" / "Check_Back_standardized.xlsx"
 SYNC_SCRIPT = ROOT / "dashboard" / "sync-default-workbook.sh"
-GYR_COL = " (G/Y/R)"
+GYR_COL = "(G/Y/R)"
+LEGACY_GYR_COL = " (G/Y/R)"
 LICENSE_COL = "Provisioned/Entitled Lic Calling"
 PAIR_RE = re.compile(
     r"\b(?:PL|WS|Professional|Workspace)\s*:?\s*(\d[\d,]*)\s*/\s*(\d[\d,]*)",
@@ -95,7 +96,7 @@ def load_portfolio_stats(path: Path | None = None) -> dict:
     cols = _headers(ws, header_row)
 
     name_col = cols.get("Opportunity Name", 1)
-    gyr_col = cols.get(GYR_COL)
+    gyr_col = cols.get(GYR_COL) or cols.get(LEGACY_GYR_COL)
     lic_col = cols.get(LICENSE_COL)
     act_col = cols.get("Active Lic Calling")
     tcv_col = cols.get("TCV $")

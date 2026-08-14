@@ -16,9 +16,9 @@ MINIMAL_CONFIG = {
     "install_base_to_checkback": {
         "Account Name": "Opportunity Name",
         "Partner Name": "Partner",
-        "Risk2_0_current": " (G/Y/R)",
-        "Webex Calling MT Provisioned Seats": "Providioned Lic Calling",
-        "Cloud Calling Billed Seats": "Entitled Lic Calling",
+        "Risk2_0_current": "(G/Y/R)",
+        "Webex Calling MT Provisioned Seats": "Provisioned/Entitled Lic Calling",
+        "Cloud Calling Billed Seats": "Provisioned/Entitled Lic Calling",
     },
     "risk_to_gyr": {"Low": "G", "High": "R", "Medium": "Y"},
     "review_flags": {},
@@ -40,13 +40,13 @@ def test_map_row_basic():
     row, gaps = map_row(ib)
     assert row["Opportunity Name"] == "Test Corp"
     assert row["Partner"] == "Partner X"
-    assert row[" (G/Y/R)"] == "G"
+    assert row["(G/Y/R)"] == "G"
 
 
 def test_risk_high_maps_red():
     ib = {"Account Name": "A", "Risk2_0_current": "High"}
     row, _ = map_row(ib)
-    assert row[" (G/Y/R)"] == "R"
+    assert row["(G/Y/R)"] == "R"
 
 
 def test_first_number():
@@ -73,36 +73,36 @@ def test_map_row_license_mt_di():
         "Webex Calling DI Provisioned Seats": 50,
     }
     row, _ = map_row(ib, MINIMAL_CONFIG)
-    assert row["Providioned Lic Calling"] == "MT: 100 DI: 50"
+    assert row["Provisioned/Entitled Lic Calling"] == "MT: 100 DI: 50"
 
 
 def test_map_row_entitled_from_billed_seats():
     ib = {"Cloud Calling Billed Seats": 25}
     row, _ = map_row(ib, MINIMAL_CONFIG)
-    assert row["Entitled Lic Calling"] == "25 workspace"
+    assert row["Provisioned/Entitled Lic Calling"] == "25 workspace"
 
 
 def test_map_row_entitled_fallback_total_billed():
     ib = {"Cloud Calling Billed Seats": "", "Total Billed Seats": 30}
     row, _ = map_row(ib, MINIMAL_CONFIG)
-    assert row["Entitled Lic Calling"] == "30 workspace"
+    assert row["Provisioned/Entitled Lic Calling"] == "30 workspace"
 
 
 def test_map_row_risk_medium():
     ib = {"Risk2_0_current": "Medium"}
     row, _ = map_row(ib, MINIMAL_CONFIG)
-    assert row[" (G/Y/R)"] == "Y"
+    assert row["(G/Y/R)"] == "Y"
 
 
 def test_map_row_review_flag_gap():
     config = {
         **MINIMAL_CONFIG,
-        "review_flags": {"Webex Calling MT Provisioned Seats": "verify"},
+        "review_flags": {"Webex Calling MT Provisioned Seats": "Provisioned/Entitled Lic Calling"},
     }
     ib = {"Webex Calling MT Provisioned Seats": 100}
     _, gaps = map_row(ib, config)
     assert any(
-        g["field"] == "Providioned Lic Calling" and g["confidence"] == "medium"
+        g["field"] == "Provisioned/Entitled Lic Calling" and g["confidence"] == "medium"
         for g in gaps
     )
 

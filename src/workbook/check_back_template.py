@@ -1,4 +1,4 @@
-"""Load and write Check Back workbook preserving two-row header structure."""
+"""Load and write Check Back workbook (single-row header in v1 template)."""
 
 from __future__ import annotations
 
@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import Any
 
 import openpyxl
-from openpyxl.styles import PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill
 
 YELLOW = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+HDR_FILL = PatternFill(start_color="0D1526", end_color="0D1526", fill_type="solid")
+HDR_FONT = Font(bold=True, color="94A3B8", size=10)
 
+# Canonical columns from samples/check_back_template_v1.xlsx
 CHECK_BACK_HEADERS = [
     "Opportunity Name",
     "Opportunity (linked)",
@@ -33,9 +36,8 @@ CHECK_BACK_HEADERS = [
     "Notes from Calling Analytics",
     "Notes from provisioned features",
     "CCEP trial (Y/N)",
-    " (G/Y/R)",
+    "(G/Y/R)",
     "TAC/BEMS",
-    # PowerPoint Business Insight columns (Subscription / Provisioning / Features)
     "AAR $",
     "Collab AE/SE",
     "Service lines",
@@ -61,16 +63,41 @@ CHECK_BACK_HEADERS = [
     "Salesforce URL",
 ]
 
+GYR_COL = "(G/Y/R)"
+LEGACY_GYR_COL = " (G/Y/R)"
+PROV_ENT_LICENSE_COL = "Provisioned/Entitled Lic Calling"
 
-def load_template(path: str | Path) -> tuple[openpyxl.Workbook, dict[str, int]]:
+
+def detect_header_row(ws, max_scan: int = 5) -> int:
+    for r in range(1, max_scan + 1):
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(r, c).value
+            if v and str(v).strip() == "Opportunity Name":
+                return r
+    return 1
+
+
+def load_template(path: str | Path) -> tuple[openpyxl.Workbook, dict[str, int], int]:
     wb = openpyxl.load_workbook(path)
     ws = wb.active
-    header_row = 2
+    header_row = detect_header_row(ws)
     col_index: dict[str, int] = {}
     for col_idx, cell in enumerate(ws[header_row], start=1):
         if cell.value:
             col_index[str(cell.value).strip()] = col_idx
-    return wb, col_index
+    return wb, col_index, header_row
+
+
+def build_template_workbook() -> openpyxl.Workbook:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Customer Data"
+    for col, name in enumerate(CHECK_BACK_HEADERS, start=1):
+        cell = ws.cell(1, col, value=name)
+        cell.fill = HDR_FILL
+        cell.font = HDR_FONT
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+    return wb
 
 
 def append_row(
