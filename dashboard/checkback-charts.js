@@ -61,11 +61,38 @@ const CheckBackDashboard = (function () {
     return Math.max(...nums.map((n) => parseFloat(n.replace(/,/g, '')) || 0));
   }
 
+  const GYR_FILTER_LABELS = { G: 'G (Good)', Y: 'Y (Upsell)', R: 'R (Risk)' };
+
+  function isGyrColumn(col) {
+    return col === GYR_COL || col === LEGACY_GYR_COL;
+  }
+
+  function rowGyrValue(row) {
+    if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.rowGyrValue) {
+      return BiaSanitizer.rowGyrValue(row);
+    }
+    const raw = row[GYR_COL] ?? row[LEGACY_GYR_COL] ?? '';
+    const v = String(raw || '').trim().toUpperCase().charAt(0);
+    return v === 'G' || v === 'Y' || v === 'R' ? v : '';
+  }
+
+  function gyrCounts(rows) {
+    const out = { G: 0, Y: 0, R: 0 };
+    (rows || []).forEach((r) => {
+      const k = rowGyrValue(r);
+      if (k === 'G' || k === 'Y' || k === 'R') out[k] += 1;
+    });
+    return out;
+  }
+
   function getGyrBadge(val) {
-    const v = String(val || '').trim().toUpperCase().charAt(0);
-    if (v === 'G') return `<span class="badge badge-low">G</span>`;
-    if (v === 'Y') return `<span class="badge badge-medium">Y</span>`;
-    if (v === 'R') return `<span class="badge badge-high">R</span>`;
+    const norm =
+      typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeGyrColumnValue
+        ? BiaSanitizer.normalizeGyrColumnValue(val)
+        : String(val || '').trim().toUpperCase().charAt(0);
+    if (norm === 'G') return `<span class="badge badge-low">G</span>`;
+    if (norm === 'Y') return `<span class="badge badge-medium">Y</span>`;
+    if (norm === 'R') return `<span class="badge badge-high">R</span>`;
     return val || '';
   }
 
@@ -78,15 +105,28 @@ const CheckBackDashboard = (function () {
     grid.appendChild(sd);
     FILTER_COLUMNS.forEach((col) => {
       if (!allColumns.includes(col)) return;
-      const vals = [...new Set(rawData.map((r) => r[col]).filter((v) => v !== ''))].sort();
+      let vals;
+      if (isGyrColumn(col)) {
+        const counts = gyrCounts(rawData);
+        vals = ['G', 'Y', 'R'].filter((k) => counts[k] > 0);
+      } else {
+        vals = [...new Set(rawData.map((r) => r[col]).filter((v) => v !== ''))].sort();
+      }
       if (vals.length < 2) return;
       const div = document.createElement('div');
       div.className = 'filter-group';
       const label =
         typeof PortfolioColumns !== 'undefined' ? PortfolioColumns.displayLabel(col) : col;
+      const options = vals
+        .map((v) => {
+          const labelText = isGyrColumn(col) ? GYR_FILTER_LABELS[v] || v : v;
+          const esc = String(labelText).replace(/"/g, '&quot;');
+          return `<option value="${v}">${esc}</option>`;
+        })
+        .join('');
       div.innerHTML = `<label class="filter-label">${label}</label>
         <select class="filter-select" data-col="${col}" onchange="applyFilters()">
-        <option value="">All</option>${vals.map((v) => `<option value="${v}">${v}</option>`).join('')}
+        <option value="">All</option>${options}
         </select>`;
       grid.appendChild(div);
     });
@@ -125,10 +165,10 @@ const CheckBackDashboard = (function () {
       totalProv += t.provisioned;
       totalAct += t.active;
     });
-    const gyr = countBy(d, GYR_COL);
-    const red = gyr['R'] || gyr['r'] || 0;
-    const yellow = gyr['Y'] || gyr['y'] || 0;
-    const green = gyr['G'] || gyr['g'] || 0;
+    const gyr = gyrCounts(d);
+    const red = gyr.R || 0;
+    const yellow = gyr.Y || 0;
+    const green = gyr.G || 0;
     const noSetup = d.filter(
       (r) => String(r['Calling Setup Assist included (Y/N)'] || '').toUpperCase() === 'N'
     ).length;
@@ -221,9 +261,9 @@ const CheckBackDashboard = (function () {
   }
 
   function buildGyrChart(d) {
-    const gyr = countBy(d, GYR_COL);
-    const labels = ['G', 'Y', 'R', ''].filter((k) => gyr[k] || gyr[k.toLowerCase()]);
-    const data = labels.map((k) => Math.round(gyr[k] || gyr[k.toLowerCase()] || 0));
+    const gyr = gyrCounts(d);
+    const labels = ['G', 'Y', 'R'].filter((k) => gyr[k] > 0);
+    const data = labels.map((k) => gyr[k]);
     const colors = labels.map((k) => GYR_COLORS[k] || '#64748b');
     makeChart(
       'cbGyrChart',
@@ -268,10 +308,11 @@ const CheckBackDashboard = (function () {
   }
 
   function buildLicenseGapChart(d) {
-    const labels = d.slice(0, 12).map((r) => String(r['Opportunity Name'] || '?').substring(0, 18));
-    const entitled = d.slice(0, 12).map((r) => rowLicenseTotals(r).entitled);
-    const prov = d.slice(0, 12).map((r) => rowLicenseTotals(r).provisioned);
-    const active = d.slice(0, 12).map((r) => rowLicenseTotals(r).active);
+    const slice = d.slice(0, 12);
+    const labels = slice.map((r) => String(r['Opportunity Name'] || '?').substring(0, 18));
+    const entitled = slice.map((r) => rowLicenseTotals(r).entitled);
+    const prov = slice.map((r) => rowLicenseTotals(r).provisioned);
+    const active = slice.map((r) => rowLicenseTotals(r).active);
     makeChart(
       'cbLicenseChart',
       'bar',
@@ -285,7 +326,7 @@ const CheckBackDashboard = (function () {
         plugins: { legend: { position: 'top' } },
         scales: { x: { stacked: false }, y: { beginAtZero: true, ticks: { callback: (v) => fmtLicenseCount(v) } } },
       },
-      { col: 'Opportunity Name', tabName: 'Adoption' }
+      { action: 'customerInsight', rows: slice, tabName: 'Adoption' }
     );
   }
 
@@ -304,7 +345,7 @@ const CheckBackDashboard = (function () {
       top.map((x) => x[0]),
       [{ label: 'Count', data: top.map((x) => x[1]), backgroundColor: CC.map((c) => c + 'cc'), borderRadius: 6 }],
       { indexAxis: 'y', plugins: { legend: { display: false } } },
-      { col: 'Migrating from', tabName: 'Adoption' }
+      { col: '__migration_path__', tabName: 'Adoption' }
     );
   }
 
@@ -571,5 +612,9 @@ const CheckBackDashboard = (function () {
     renderAttachmentUI,
     onAttachmentChange,
     GYR_COL,
+    LEGACY_GYR_COL,
+    isGyrColumn,
+    rowGyrValue,
+    gyrCounts,
   };
 })();

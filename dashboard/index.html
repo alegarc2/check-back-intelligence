@@ -658,7 +658,7 @@
     </div>
     <div class="charts-grid charts-2col">
       <div class="chart-card"><div class="drill-hint-badge">🔍 Click to drill down</div>
-        <div class="chart-header"><div><div class="chart-title">Entitled vs Provisioned vs Active</div><div class="chart-subtitle">Top accounts by license stack</div></div></div>
+        <div class="chart-header"><div><div class="chart-title">Entitled vs Provisioned vs Active</div><div class="chart-subtitle">Click a customer bar to open their Business Insight slide</div></div></div>
         <div class="chart-container chart-container-tall clickable-chart"><canvas id="cbLicenseChart"></canvas></div></div>
       <div class="chart-card"><div class="drill-hint-badge">🔍 Click to drill down</div>
         <div class="chart-header"><div><div class="chart-title">Migration Paths</div></div></div>
@@ -1412,7 +1412,11 @@ function applyFilters(){
   document.querySelectorAll('.filter-select').forEach(s=>{if(s.value)activeFilters[s.dataset.col]=s.value;});
   const acct=(document.getElementById('acctSearch')?.value||'').toLowerCase();
   filteredData=rawData.filter(row=>{
-    for(const[col,val]of Object.entries(activeFilters)){if(String(row[col])!==String(val))return false;}
+    for(const[col,val]of Object.entries(activeFilters)){
+      if(dashboardMode==='checkback'&&typeof CheckBackDashboard!=='undefined'&&CheckBackDashboard.isGyrColumn(col)){
+        if(CheckBackDashboard.rowGyrValue(row)!==String(val))return false;
+      }else if(String(row[col])!==String(val))return false;
+    }
     if(acct){const ak=row['Account Name']||row['Opportunity Name']||'';if(!String(ak).toLowerCase().includes(acct))return false;}
     if(tableSearchTerm){const ts=tableSearchTerm.toLowerCase();return Object.values(row).some(v=>String(v).toLowerCase().includes(ts));}
     return true;
@@ -1521,24 +1525,34 @@ function makeChart(id,type,labels,datasets,extraOpts={},drillCfg={}){
   datasets=datasets.map(ds=>({...ds,data:ds.data.map(v=>typeof v==='number'?Math.round(v):v)}));
   const opts=deepMerge(baseOpts(),extraOpts);
   if(['doughnut','pie'].includes(type))delete opts.scales;
-  if(drillCfg.col!==undefined){
+  if(drillCfg.col!==undefined||drillCfg.action){
     opts.onClick=(_,elements)=>{
       if(!elements.length)return;
       const idx=elements[0].index;
       const clickedLabel=labels[idx];
       const dsIdx=elements[0].datasetIndex;
       const dsLabel=datasets[dsIdx]?.label||'';
-      handleChartDrill(drillCfg,clickedLabel,dsLabel,id);
+      handleChartDrill(drillCfg,clickedLabel,dsLabel,id,idx);
     };
     canvas.style.cursor='pointer';
   }
   charts[id]=new Chart(canvas.getContext('2d'),{type,data:{labels,datasets},options:opts});
+  if(drillCfg.rows)charts[id]._drillRows=drillCfg.rows;
 }
 
 // ═══════════════════════════════════════════
 // DRILL ROUTING — fixed product AOV + all others
 // ═══════════════════════════════════════════
-function handleChartDrill(cfg,clickedLabel,dsLabel,chartId){
+function handleChartDrill(cfg,clickedLabel,dsLabel,chartId,elementIdx){
+  if(cfg.action==='customerInsight'){
+    const chart=charts[chartId];
+    const row=chart&&chart._drillRows?chart._drillRows[elementIdx]:null;
+    if(!row)return;
+    const absIdx=filteredData.indexOf(row);
+    if(typeof openCustomerInsight==='function')openCustomerInsight(absIdx>=0?absIdx:0);
+    else if(typeof AccountInsight!=='undefined')AccountInsight.open(row,absIdx>=0?absIdx:0);
+    return;
+  }
   let data=filteredData,filterCol=cfg.col,filterVal=clickedLabel,title='',subtitle='';
 
   if(cfg.col==='__product_aov__'){
@@ -1574,6 +1588,23 @@ function handleChartDrill(cfg,clickedLabel,dsLabel,chartId){
     title=`Q${clickedLabel} — ${dsLabel} Risk`;subtitle=`${data.length} records`;
     filterCol='Renewal Fiscal Qtr';filterVal=clickedLabel;
 
+  }else if(cfg.col==='__migration_path__'){
+    const parts=String(clickedLabel).split(' → ');
+    const from=(parts[0]||'').trim()||'?';
+    const to=parts.length>1?(parts.slice(1).join(' → ').trim()||'?'):'?';
+    data=filteredData.filter(r=>
+      String(r['Migrating from']||'?')===from&&
+      String(r['Migrating to']||'?')===to
+    );
+    title=`Migration: ${clickedLabel}`;
+    subtitle=`${data.length} records`;
+    filterCol=null;
+    filterVal=null;
+
+  }else if(cfg.col&&(dashboardMode==='checkback'&&typeof CheckBackDashboard!=='undefined'&&CheckBackDashboard.isGyrColumn(cfg.col))){
+    data=filteredData.filter(r=>CheckBackDashboard.rowGyrValue(r)===String(clickedLabel));
+    title=`${cfg.col}: ${clickedLabel}`;subtitle=`${data.length} records`;
+
   }else if(cfg.col){
     data=filteredData.filter(r=>String(r[cfg.col]||'Unknown')===String(clickedLabel));
     title=`${cfg.col}: ${clickedLabel}`;subtitle=`${data.length} records`;
@@ -1589,13 +1620,14 @@ function changeChartType(id,newType,btn){
   if(!charts[id])return;
   btn.closest('.chart-actions').querySelectorAll('.chart-type-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const data=charts[id].data;const onClick=charts[id].options.onClick;
+  const data=charts[id].data;const onClick=charts[id].options.onClick;const drillRows=charts[id]._drillRows;
   charts[id].destroy();
   const opts=baseOpts();
   if(['doughnut','pie'].includes(newType))delete opts.scales;
   else if(opts.scales&&opts.scales.y)opts.scales.y.beginAtZero=true;
   if(onClick)opts.onClick=onClick;
   charts[id]=new Chart(document.getElementById(id).getContext('2d'),{type:newType,data,options:opts});
+  if(drillRows)charts[id]._drillRows=drillRows;
 }
 
 // Standardised dataset builder — enforces clean numeric values
@@ -2205,12 +2237,10 @@ function exportCheckBackPdf(){
   });
   const provEntPct=totalEnt?Math.round((totalProv/totalEnt)*100):0;
   const actProvPct=totalProv?Math.round((totalAct/totalProv)*100):0;
-  const gyrCol=(typeof CheckBackDashboard!=='undefined'&&CheckBackDashboard.GYR_COL)||'Green/Yellow/Red for Calling Features';
-  const gyr=countBy(d,gyrCol);
-  const red=gyr['R']||gyr['r']||0;
+  const gyr=typeof CheckBackDashboard!=='undefined'&&CheckBackDashboard.gyrCounts?CheckBackDashboard.gyrCounts(d):{G:0,Y:0,R:0};
   drawPdfCover(doc,'Check Back Intelligence Report',`Generated: ${new Date().toLocaleString()} | Opportunities: ${d.length}`);
   drawPdfSummaryRow(doc,['PROV / ENT','ACT / PROV','TOTAL TCV','G / Y / R'],[
-    provEntPct+'%',actProvPct+'%',fmt(sum(d,'TCV $')),`${gyr['G']||gyr['g']||0} / ${gyr['Y']||gyr['y']||0} / ${red}`
+    provEntPct+'%',actProvPct+'%',fmt(sum(d,'TCV $')),`${gyr.G||0} / ${gyr.Y||0} / ${gyr.R||0}`
   ],22);
   let cols=[];
   if(typeof tableDisplayColumns==='function')cols=tableDisplayColumns().slice(0,10);
@@ -2230,115 +2260,12 @@ function exportPDF(){
   }).catch(err=>alert('PDF export failed: '+err.message));
 }
 
-function pdfTextFromNode(el){
-  if(!el)return '';
-  return String(el.textContent||'').replace(/\s+/g,' ').trim();
-}
-
-function extractInsightSlideSections(slideRoot){
-  const sections=[];
-  if(!slideRoot)return sections;
-  slideRoot.querySelectorAll('.insight-panel').forEach(panel=>{
-    const title=pdfTextFromNode(panel.querySelector('h3'))||'Section';
-    const rows=[];
-    panel.querySelectorAll('.insight-kv').forEach(kv=>{
-      const label=pdfTextFromNode(kv.querySelector(':scope > span'));
-      let valueEl=kv.querySelector('strong, a.bia-link-view, a.customer-link');
-      let value=valueEl?pdfTextFromNode(valueEl):pdfTextFromNode(kv).replace(label,'').trim();
-      if(label)rows.push([label,value||'—']);
-    });
-    panel.querySelectorAll('.insight-feature-grid > div').forEach(cell=>{
-      const bits=cell.querySelectorAll('span, strong');
-      if(bits.length>=2)rows.push([pdfTextFromNode(bits[0]),pdfTextFromNode(bits[1])||'—']);
-    });
-    panel.querySelectorAll('.bia-feature-caption').forEach(cap=>{
-      const capText=pdfTextFromNode(cap);
-      if(capText)rows.push([capText,'']);
-    });
-    panel.querySelectorAll('.insight-lic-row').forEach(row=>{
-      const label=pdfTextFromNode(row.querySelector('.insight-lic-label'));
-      const nums=pdfTextFromNode(row.querySelector('.insight-lic-nums'));
-      if(label||nums)rows.push([label||'License',nums||'—']);
-    });
-    const addonRows=[];
-    panel.querySelectorAll('.bia-addon-table tbody tr').forEach(tr=>{
-      const cells=[...tr.querySelectorAll('td')].map(td=>pdfTextFromNode(td));
-      if(cells.length)addonRows.push(cells);
-    });
-    if(addonRows.length){
-      rows.push(['Add-ons (P / T / U)','']);
-      addonRows.forEach(r=>rows.push([r[0]||'',[r[1],r[2],r[3]].filter(Boolean).join(' / ')||'—']));
-    }
-    panel.querySelectorAll('.insight-notes-field').forEach(block=>{
-      const label=pdfTextFromNode(block.querySelector('.insight-notes-field-label'));
-      const body=pdfTextFromNode(block.querySelector('.insight-notes-edit, .bia-editable-value'));
-      if(label||body)rows.push([label||'Notes',body||'—']);
-    });
-    if(rows.length)sections.push({title,rows});
-  });
-  const trends=[...slideRoot.querySelectorAll('.bia-trend-item')].map(item=>{
-    const label=pdfTextFromNode(item.querySelector('.bia-trend-label'));
-    const value=pdfTextFromNode(item.querySelector('.insight-trend'));
-    return label&&value?`${label}: ${value}`:(value||label);
-  }).filter(Boolean);
-  if(!trends.length){
-    [...slideRoot.querySelectorAll('.insight-trend')].forEach(t=>{
-      const v=pdfTextFromNode(t);
-      if(v)trends.push(v);
-    });
-  }
-  if(trends.length)sections.push({title:'Trends',rows:trends.map(t=>['Trend',t])});
-  return sections;
-}
-
-function safePdfFilename(name){
-  return String(name||'customer').replace(/[^\w\s-]+/g,'').replace(/\s+/g,'_').substring(0,80)||'customer';
-}
-
 function exportCustomerInsightPdf(row){
-  const slideRoot=document.querySelector('#accountInsightBody .bia-slide, #accountInsightBody .insight-slide');
-  if(!slideRoot){alert('Open a customer Business Insight slide first.');return Promise.reject(new Error('No slide open'));}
-  const customerName=pdfTextFromNode(slideRoot.querySelector('.insight-h1'))||row?.['Opportunity Name']||'Customer';
-  const health=pdfTextFromNode(slideRoot.querySelector('.insight-health span, .insight-health'));
-  const gathered=pdfTextFromNode(slideRoot.querySelector('.insight-meta'));
-  const sections=extractInsightSlideSections(slideRoot);
-  const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const pageW=doc.internal.pageSize.getWidth();
-  doc.setFillColor(10,14,26);doc.rect(0,0,pageW,36,'F');
-  doc.setFillColor(0,188,235);doc.rect(0,0,pageW,8,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont(undefined,'bold');
-  doc.text(String(customerName).substring(0,90),14,22);
-  doc.setFontSize(10);doc.setFont(undefined,'normal');
-  doc.text('Business Insight and Analysis',14,30);
-  if(gathered){doc.setFontSize(8);doc.setTextColor(148,163,184);doc.text(gathered.substring(0,120),14,35);}
-  let y=44;
-  if(health){
-    doc.setTextColor(0,212,160);doc.setFontSize(9);doc.setFont(undefined,'bold');
-    doc.text('Health: '+health.substring(0,40),14,y);y+=8;
+  if(typeof BiaSlidePdf!=='undefined'&&BiaSlidePdf.exportRow){
+    return BiaSlidePdf.exportRow(row);
   }
-  doc.setFont(undefined,'normal');
-  sections.forEach(section=>{
-    if(y>250){doc.addPage();y=16;}
-    doc.setTextColor(0,188,235);doc.setFontSize(11);doc.setFont(undefined,'bold');
-    doc.text(section.title,14,y);y+=6;
-    doc.autoTable({
-      startY:y,
-      head:[['Field','Value']],
-      body:section.rows.map(([a,b])=>[String(a||'').substring(0,48),String(b||'—').substring(0,120)]),
-      theme:'plain',
-      styles:{fontSize:8,cellPadding:2,textColor:[241,245,249],fillColor:[26,34,53],lineColor:[30,58,95],lineWidth:0.2},
-      headStyles:{fillColor:[0,188,235],textColor:[255,255,255],fontStyle:'bold'},
-      alternateRowStyles:{fillColor:[17,24,39]},
-      columnStyles:{0:{cellWidth:52},1:{cellWidth:'auto'}},
-      margin:{left:14,right:14},
-    });
-    y=(doc.lastAutoTable&&doc.lastAutoTable.finalY?doc.lastAutoTable.finalY:y)+10;
-  });
-  doc.setTextColor(100,116,139);doc.setFontSize(7);
-  doc.text('Check Back Intelligence · Lookback Program · Cisco Confidential · '+new Date().toLocaleString(),14,doc.internal.pageSize.getHeight()-8);
-  doc.save(safePdfFilename(customerName)+'_business_insight.pdf');
-  return Promise.resolve();
+  alert('PDF export is not available — reload the dashboard and try again.');
+  return Promise.reject(new Error('BiaSlidePdf unavailable'));
 }
 function downloadFile(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
 

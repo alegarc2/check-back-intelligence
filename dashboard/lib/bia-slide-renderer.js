@@ -237,8 +237,6 @@ class BiaSlideRenderer {
           ${DashboardHtml.kv('Licenses (prov/ent)', p.entitled, 'Provisioned/Entitled Lic Calling')}
           ${BiaSlideRenderer.renderProvisionedBlock(p)}
           ${DashboardHtml.kv('Active Users', p.activeUsers, 'Active Lic Calling')}
-          ${DashboardHtml.kv('Numbers Assigned / Provisioned', p.numbersAssigned, 'Numbers assigned')}
-          ${DashboardHtml.kv('Location w/ Main Number / VM', p.locations, 'Locations main number')}
           ${DashboardHtml.kv('External Calls vs Total', p.externalCalls, 'External calls')}
           ${DashboardHtml.kv('Meetings', p.meetings, 'Meetings usage')}
           ${DashboardHtml.kv('Messaging', p.messaging, 'Messaging usage')}

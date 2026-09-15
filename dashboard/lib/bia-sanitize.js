@@ -102,8 +102,27 @@ class BiaSanitizer {
     const h = String(health || '').toLowerCase();
     if (h === 'good') return 'G';
     if (h === 'risk') return 'R';
-    if (h === 'upsell') return 'Y';
+    if (h === 'upsell' || h === 'yellow') return 'Y';
     return '';
+  }
+
+  /** Normalized G/Y/R from a workbook row (canonical + legacy column). */
+  static rowGyrValue(row) {
+    if (!row) return '';
+    const gyrCol =
+      (typeof CheckBack !== 'undefined' &&
+        CheckBack.Dashboard &&
+        CheckBack.Dashboard.Constants &&
+        CheckBack.Dashboard.Constants.GYR_COL) ||
+      '(G/Y/R)';
+    const legacyCol =
+      (typeof CheckBack !== 'undefined' &&
+        CheckBack.Dashboard &&
+        CheckBack.Dashboard.Constants &&
+        CheckBack.Dashboard.Constants.LEGACY_GYR_COL) ||
+      ' (G/Y/R)';
+    const raw = row[gyrCol] ?? row[legacyCol] ?? row['Final Determination'] ?? '';
+    return BiaSanitizer.normalizeGyrColumnValue(raw);
   }
 
   /** Workbook (G/Y/R) column — single letter only, not slide display labels. */

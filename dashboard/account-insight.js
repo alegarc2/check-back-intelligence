@@ -292,7 +292,16 @@ const AccountInsight = (function () {
       return Promise.resolve(false);
     }
     return ensurePdfLibs()
-      .then(() => exportCustomerInsightPdf(_ctx.row))
+      .then(() => {
+        if (typeof BiaSlidePdf !== 'undefined' && BiaSlidePdf.exportRow) {
+          return BiaSlidePdf.exportRow(_ctx.row);
+        }
+        if (typeof exportCustomerInsightPdf === 'function') {
+          return exportCustomerInsightPdf(_ctx.row);
+        }
+        alert('PDF export is not available.');
+        return false;
+      })
       .catch((err) => {
         alert('PDF export failed: ' + err.message);
         return false;

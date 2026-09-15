@@ -14,6 +14,7 @@ LIB=(
   lib/bia-portfolio.js
   lib/bia-slide-merger.js
   lib/bia-slide-renderer.js
+  lib/bia-slide-pdf.js
   lib/bia-slide-editor.js
 )
 

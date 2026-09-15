@@ -11,6 +11,27 @@ class LicenseProductParser {
     /\b(WxMS|WxM|WxCC|PL|WS|STD|Standard)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
   static STANDARD_PAIR_RE =
     /\bStandard\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+  /** Professional, Standard, Workspace pairs in merged / legacy license cells (not WxMS/WxM/WxCC). */
+  static CALLING_PAIR_RE =
+    /\b(?:PL|WS|STD|Professional|Standard|Workspace)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+  static CALLING_PAIR_LABEL_RE =
+    /\b(Professional|Standard|Workspace|PL|WS|STD)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+  static CALLING_PAIR_PROV_RE =
+    /\b(Professional|Standard|Workspace|PL|WS|STD)\s*:?\s*(\d[\d,]*)\s*\/\s*\d[\d,]*/gi;
+
+  static callingProductLabel(token) {
+    const t = String(token || '').toUpperCase();
+    if (t === 'WS' || t === 'WORKSPACE') return 'Workspace';
+    if (t === 'STD' || t === 'STANDARD') return 'Standard';
+    return 'Professional';
+  }
+
+  static LIC_BREAKDOWN_COLS = [
+    'Lic Professional (used/entitled)',
+    'Lic Standard (used/entitled)',
+    'Lic Workspace (used/entitled)',
+  ];
+
   /** e.g. "1,265 workspace 335" → Professional 1265, Workspace 335 */
   static PROF_WS_SHORT_RE = /(\d[\d,]*)\s+workspace\s+(\d[\d,]*)/i;
 
@@ -65,19 +86,21 @@ class LicenseProductParser {
   }
 
   static parsePlWsSingleCell(val) {
-    const out = { pl: null, ws: null };
+    const out = { pl: null, std: null, ws: null };
     const s = String(val ?? '').trim();
     if (!s) return out;
     let m;
     const plRe = /\bPL\s*:\s*(\d[\d,]*)/gi;
+    const stdRe = /\bSTD\s*:\s*(\d[\d,]*)/gi;
     const wsRe = /\bWS\s*:\s*(\d[\d,]*)/gi;
     while ((m = plRe.exec(s)) !== null) out.pl = LicenseProductParser.parseNum(m[1]);
+    while ((m = stdRe.exec(s)) !== null) out.std = LicenseProductParser.parseNum(m[1]);
     while ((m = wsRe.exec(s)) !== null) out.ws = LicenseProductParser.parseNum(m[1]);
     return out;
   }
 
   static hasProfWsPairFormat(val) {
-    return /\b(?:Professional|Workspace|PL|WS)\s*:?\s*\d[\d,]*\s*\/\s*\d[\d,]*/i.test(
+    return /\b(?:PL|WS|STD|Professional|Standard|Workspace)\s*:?\s*\d[\d,]*\s*\/\s*\d[\d,]*/i.test(
       String(val ?? '')
     );
   }
@@ -86,26 +109,56 @@ class LicenseProductParser {
     let s = String(text ?? '').trim();
     if (!s) return '';
     s = s.replace(
-      /\bPL\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
-      (_, p, e) =>
-        `Professional ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`
+      /\b(PL|STD|WS)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
+      (_, token, p, e) => {
+        const name = LicenseProductParser.callingProductLabel(token);
+        return `${name} ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`;
+      }
     );
     s = s.replace(
-      /\bWS\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
-      (_, p, e) =>
-        `Workspace ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`
+      /\b(Professional|Standard|Workspace)\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
+      (_, name, p, e) =>
+        `${name} ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`
     );
-    s = s.replace(
-      /\bProfessional\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
-      (_, p, e) =>
-        `Professional ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`
-    );
-    s = s.replace(
-      /\bWorkspace\s+(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi,
-      (_, p, e) =>
-        `Workspace ${LicenseProductParser.fmtCount(p)}/${LicenseProductParser.fmtCount(e)}`
-    );
-    return s.replace(/\s*;\s*/g, '; ').replace(/,\s*(?=Workspace)/g, '; ');
+    return s.replace(/\s*;\s*/g, '; ').replace(/,\s*(?=(?:Workspace|Standard)\b)/gi, '; ');
+  }
+
+  static parseBreakdownPair(val) {
+    const m = String(val ?? '').trim().match(/(\d[\d,]*)\s*\/\s*(\d[\d,]*)/);
+    if (!m) return null;
+    return {
+      provisioned: LicenseProductParser.parseNum(m[1]),
+      entitled: LicenseProductParser.parseNum(m[2]),
+    };
+  }
+
+  static mergedHasCallingProduct(merged, product) {
+    const s = String(merged ?? '');
+    if (product === 'standard') {
+      return /\b(?:STD|Standard)\s*:?\s*\d[\d,]*\s*\/\s*\d[\d,]*/i.test(s);
+    }
+    if (product === 'workspace') {
+      return /\b(?:WS|Workspace)\s*:?\s*\d[\d,]*\s*\/\s*\d[\d,]*/i.test(s);
+    }
+    return /\b(?:PL|Professional)\s*:?\s*\d[\d,]*\s*\/\s*\d[\d,]*/i.test(s);
+  }
+
+  static augmentTotalsFromBreakdownColumns(row, mergedText) {
+    let entitled = 0;
+    let provisioned = 0;
+    const specs = [
+      ['Lic Professional (used/entitled)', 'professional'],
+      ['Lic Standard (used/entitled)', 'standard'],
+      ['Lic Workspace (used/entitled)', 'workspace'],
+    ];
+    specs.forEach(([col, product]) => {
+      if (mergedText && LicenseProductParser.mergedHasCallingProduct(mergedText, product)) return;
+      const pair = LicenseProductParser.parseBreakdownPair(row[col]);
+      if (!pair) return;
+      entitled += pair.entitled;
+      provisioned += pair.provisioned;
+    });
+    return { entitled, provisioned };
   }
 
   static getLicenseCell(row) {
@@ -126,14 +179,11 @@ class LicenseProductParser {
     const merged = LicenseProductParser.getLicenseCell(row);
     if (merged && LicenseProductParser.hasProfWsPairFormat(merged)) {
       const parts = [];
-      const pairRe =
-        /\b(Professional|Workspace|PL|WS)\s*:?\s*\d[\d,]*\s*\/\s*(\d[\d,]*)/gi;
+      const pairRe = new RegExp(LicenseProductParser.CALLING_PAIR_LABEL_RE.source, 'gi');
       let m;
       while ((m = pairRe.exec(merged)) !== null) {
-        const token = m[1].toUpperCase();
-        const name =
-          token === 'WS' || token === 'WORKSPACE' ? 'Workspace' : 'Professional';
-        parts.push(`${name} ${LicenseProductParser.fmtCount(m[2])}`);
+        const name = LicenseProductParser.callingProductLabel(m[1]);
+        parts.push(`${name} ${LicenseProductParser.fmtCount(m[3])}`);
       }
       if (parts.length) return parts.join('; ');
       const total = LicenseProductParser.sumPlWsCell(merged, 'entitled');
@@ -147,13 +197,10 @@ class LicenseProductParser {
     const merged = LicenseProductParser.getLicenseCell(row);
     if (merged && LicenseProductParser.hasProfWsPairFormat(merged)) {
       const parts = [];
-      const pairRe =
-        /\b(Professional|Workspace|PL|WS)\s*:?\s*(\d[\d,]*)\s*\/\s*\d[\d,]*/gi;
+      const pairRe = new RegExp(LicenseProductParser.CALLING_PAIR_PROV_RE.source, 'gi');
       let m;
       while ((m = pairRe.exec(merged)) !== null) {
-        const token = m[1].toUpperCase();
-        const name =
-          token === 'WS' || token === 'WORKSPACE' ? 'Workspace' : 'Professional';
+        const name = LicenseProductParser.callingProductLabel(m[1]);
         parts.push(`${name} ${LicenseProductParser.fmtCount(m[2])}`);
       }
       if (parts.length) return parts.join('; ');
@@ -194,6 +241,11 @@ class LicenseProductParser {
         `Professional ${LicenseProductParser.fmtCount(prov.pl ?? 0)}/${LicenseProductParser.fmtCount(ent.pl ?? 0)}`
       );
     }
+    if (ent.std != null || prov.std != null) {
+      parts.push(
+        `Standard ${LicenseProductParser.fmtCount(prov.std ?? 0)}/${LicenseProductParser.fmtCount(ent.std ?? 0)}`
+      );
+    }
     if (ent.ws != null || prov.ws != null) {
       parts.push(
         `Workspace ${LicenseProductParser.fmtCount(prov.ws ?? 0)}/${LicenseProductParser.fmtCount(ent.ws ?? 0)}`
@@ -212,6 +264,7 @@ class LicenseProductParser {
     const prov = LicenseProductParser.parsePlWsSingleCell(provRaw);
     const parts = [];
     if (prov.pl != null) parts.push(`Professional ${LicenseProductParser.fmtCount(prov.pl)}`);
+    if (prov.std != null) parts.push(`Standard ${LicenseProductParser.fmtCount(prov.std)}`);
     if (prov.ws != null) parts.push(`Workspace ${LicenseProductParser.fmtCount(prov.ws)}`);
     if (parts.length) return parts.join('; ');
     return provRaw;
@@ -228,7 +281,7 @@ class LicenseProductParser {
   }
 
   /**
-   * Sum Professional + Workspace counts from a license cell.
+   * Sum Professional + Standard + Workspace counts from a license cell (not WxMS/WxM/WxCC).
    * @param {string} val - cell text
    * @param {'entitled'|'provisioned'|'active'} columnKind - which column the value came from
    */
@@ -239,7 +292,7 @@ class LicenseProductParser {
     let total = 0;
     let found = false;
 
-    const pairRe = /\b(?:PL|WS|Professional|Workspace)\s*:?\s*(\d[\d,]*)\s*\/\s*(\d[\d,]*)/gi;
+    const pairRe = new RegExp(LicenseProductParser.CALLING_PAIR_RE.source, 'gi');
     let m;
     while ((m = pairRe.exec(s)) !== null) {
       found = true;
@@ -250,7 +303,7 @@ class LicenseProductParser {
     }
     if (found) return total;
 
-    const singleRe = /\b(?:PL|WS)\s*:\s*(\d[\d,]*)/gi;
+    const singleRe = /\b(?:PL|STD|WS)\s*:\s*(\d[\d,]*)/gi;
     while ((m = singleRe.exec(s)) !== null) {
       found = true;
       total += LicenseProductParser.parseNum(m[1]);
@@ -276,22 +329,33 @@ class LicenseProductParser {
   static rowLicenseTotals(row) {
     const merged = LicenseProductParser.getLicenseCell(row);
     if (merged && LicenseProductParser.hasProfWsPairFormat(merged)) {
+      const augment = LicenseProductParser.augmentTotalsFromBreakdownColumns(row, merged);
       return {
-        entitled: LicenseProductParser.sumPlWsCell(merged, 'entitled'),
-        provisioned: LicenseProductParser.sumPlWsCell(merged, 'provisioned'),
+        entitled:
+          LicenseProductParser.sumPlWsCell(merged, 'entitled') + augment.entitled,
+        provisioned:
+          LicenseProductParser.sumPlWsCell(merged, 'provisioned') + augment.provisioned,
         active: LicenseProductParser.sumPlWsCell(row['Active Lic Calling'], 'active'),
       };
     }
-    const entitled = LicenseProductParser.sumPlWsCell(
-      row[LicenseProductParser.LEGACY_ENT_COL],
-      'entitled'
-    );
-    const provisioned = LicenseProductParser.sumPlWsCell(
-      row[LicenseProductParser.LEGACY_PROV_COL],
-      'provisioned'
+    const entitledRaw = row[LicenseProductParser.LEGACY_ENT_COL];
+    const provisionedRaw = row[LicenseProductParser.LEGACY_PROV_COL];
+    const legacyText = [entitledRaw, provisionedRaw]
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .join(' ');
+    const entitled = LicenseProductParser.sumPlWsCell(entitledRaw, 'entitled');
+    const provisioned = LicenseProductParser.sumPlWsCell(provisionedRaw, 'provisioned');
+    const augment = LicenseProductParser.augmentTotalsFromBreakdownColumns(
+      row,
+      LicenseProductParser.hasProfWsPairFormat(legacyText) ? legacyText : ''
     );
     const active = LicenseProductParser.sumPlWsCell(row['Active Lic Calling'], 'active');
-    return { entitled, provisioned, active };
+    return {
+      entitled: entitled + augment.entitled,
+      provisioned: provisioned + augment.provisioned,
+      active,
+    };
   }
 
   /** Last source in the list wins for shorthand counts (provisioned over entitled). */

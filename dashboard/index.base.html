@@ -752,24 +752,34 @@ function makeChart(id,type,labels,datasets,extraOpts={},drillCfg={}){
   datasets=datasets.map(ds=>({...ds,data:ds.data.map(v=>typeof v==='number'?Math.round(v):v)}));
   const opts=deepMerge(baseOpts(),extraOpts);
   if(['doughnut','pie'].includes(type))delete opts.scales;
-  if(drillCfg.col!==undefined){
+  if(drillCfg.col!==undefined||drillCfg.action){
     opts.onClick=(_,elements)=>{
       if(!elements.length)return;
       const idx=elements[0].index;
       const clickedLabel=labels[idx];
       const dsIdx=elements[0].datasetIndex;
       const dsLabel=datasets[dsIdx]?.label||'';
-      handleChartDrill(drillCfg,clickedLabel,dsLabel,id);
+      handleChartDrill(drillCfg,clickedLabel,dsLabel,id,idx);
     };
     canvas.style.cursor='pointer';
   }
   charts[id]=new Chart(canvas.getContext('2d'),{type,data:{labels,datasets},options:opts});
+  if(drillCfg.rows)charts[id]._drillRows=drillCfg.rows;
 }
 
 // ═══════════════════════════════════════════
 // DRILL ROUTING — fixed product AOV + all others
 // ═══════════════════════════════════════════
-function handleChartDrill(cfg,clickedLabel,dsLabel,chartId){
+function handleChartDrill(cfg,clickedLabel,dsLabel,chartId,elementIdx){
+  if(cfg.action==='customerInsight'){
+    const chart=charts[chartId];
+    const row=chart&&chart._drillRows?chart._drillRows[elementIdx]:null;
+    if(!row)return;
+    const absIdx=filteredData.indexOf(row);
+    if(typeof openCustomerInsight==='function')openCustomerInsight(absIdx>=0?absIdx:0);
+    else if(typeof AccountInsight!=='undefined')AccountInsight.open(row,absIdx>=0?absIdx:0);
+    return;
+  }
   let data=filteredData,filterCol=cfg.col,filterVal=clickedLabel,title='',subtitle='';
 
   if(cfg.col==='__product_aov__'){
@@ -805,6 +815,19 @@ function handleChartDrill(cfg,clickedLabel,dsLabel,chartId){
     title=`Q${clickedLabel} — ${dsLabel} Risk`;subtitle=`${data.length} records`;
     filterCol='Renewal Fiscal Qtr';filterVal=clickedLabel;
 
+  }else if(cfg.col==='__migration_path__'){
+    const parts=String(clickedLabel).split(' → ');
+    const from=(parts[0]||'').trim()||'?';
+    const to=parts.length>1?(parts.slice(1).join(' → ').trim()||'?'):'?';
+    data=filteredData.filter(r=>
+      String(r['Migrating from']||'?')===from&&
+      String(r['Migrating to']||'?')===to
+    );
+    title=`Migration: ${clickedLabel}`;
+    subtitle=`${data.length} records`;
+    filterCol=null;
+    filterVal=null;
+
   }else if(cfg.col){
     data=filteredData.filter(r=>String(r[cfg.col]||'Unknown')===String(clickedLabel));
     title=`${cfg.col}: ${clickedLabel}`;subtitle=`${data.length} records`;
@@ -820,13 +843,14 @@ function changeChartType(id,newType,btn){
   if(!charts[id])return;
   btn.closest('.chart-actions').querySelectorAll('.chart-type-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const data=charts[id].data;const onClick=charts[id].options.onClick;
+  const data=charts[id].data;const onClick=charts[id].options.onClick;const drillRows=charts[id]._drillRows;
   charts[id].destroy();
   const opts=baseOpts();
   if(['doughnut','pie'].includes(newType))delete opts.scales;
   else if(opts.scales&&opts.scales.y)opts.scales.y.beginAtZero=true;
   if(onClick)opts.onClick=onClick;
   charts[id]=new Chart(document.getElementById(id).getContext('2d'),{type:newType,data,options:opts});
+  if(drillRows)charts[id]._drillRows=drillRows;
 }
 
 // Standardised dataset builder — enforces clean numeric values

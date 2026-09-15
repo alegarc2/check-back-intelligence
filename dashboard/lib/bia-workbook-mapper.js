@@ -140,8 +140,6 @@ class BiaWorkbookMapper {
         externalCalls: enriched['External calls'] || '',
         meetings: enriched['Meetings usage'] || '',
         messaging: enriched['Messaging usage'] || '',
-        numbersAssigned: enriched['Numbers assigned'] || '',
-        locations: enriched['Locations main number'] || '',
       },
       features: {
         autoAttendant: enriched['Auto Attendant count'] || '—',

@@ -14,6 +14,13 @@ def test_standard_in_license_parser_and_mapper():
 
     assert "licStandard" in license_js
     assert "std: 'Standard'" in license_js or "std: \"Standard\"" in license_js
+    assert "CALLING_PAIR_RE" in license_js
+    assert "STD|Standard" in license_js or "Standard|Workspace" in license_js
+    assert "callingProductLabel" in license_js
+    pdf_js = (ROOT / "dashboard/lib/bia-slide-pdf.js").read_text(encoding="utf-8")
+    assert "textWithLink" in pdf_js
+    assert "exportRow" in pdf_js
+    assert "resolveDeck" in pdf_js
     assert "licStandard: enriched['Lic Standard (used/entitled)']" in mapper_js
     assert "licStandard: lic.std" in mapper_js
     assert "['std', lic.std]" in renderer_js

@@ -37,8 +37,6 @@ class BiaSlideMerger {
         externalCalls: BiaSanitizer.sanitizeField(p.externalCalls),
         meetings: BiaSanitizer.sanitizeField(p.meetings),
         messaging: BiaSanitizer.sanitizeField(p.messaging),
-        numbersAssigned: BiaSanitizer.sanitizeField(p.numbersAssigned),
-        locations: BiaSanitizer.sanitizeField(p.locations),
       },
       trendActiveUsers: BiaSanitizer.sanitizeField(slide.trendActiveUsers),
       trendCallVolume: BiaSanitizer.sanitizeField(slide.trendCallVolume),
