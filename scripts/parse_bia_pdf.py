@@ -35,7 +35,7 @@ def _parse_addons(text: str) -> dict[str, dict[str, str]]:
         "Customer Assist",
         "Attendant Console",
         "AI Receptionist",
-        "AI Premium",
+        "Enhanced AI",
     ]
     out: dict[str, dict[str, str]] = {}
     for name in names:

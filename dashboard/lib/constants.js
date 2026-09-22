@@ -30,8 +30,11 @@ CheckBack.Dashboard.Constants = {
     'Customer Assist',
     'Attendant Console',
     'AI Receptionist',
-    'AI Premium',
+    'Enhanced AI',
   ],
+  ADDON_ALIASES: {
+    'Enhanced AI': ['AI Premium'],
+  },
   PORTFOLIO_COLUMN_PREFER: [
     'Account Name',
     'Opportunity Name',

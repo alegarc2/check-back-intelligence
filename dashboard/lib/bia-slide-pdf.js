@@ -522,7 +522,7 @@ class BiaSlidePdf {
     const addons = deck.addons || {};
     const names = CheckBack.Dashboard.Constants.ADDON_ROWS || [];
     const body = names.map((name) => {
-      const a = addons[name] || {};
+      const a = BiaSlideEditor.addonCells(addons, name);
       const p = a.P ?? a.p ?? '—';
       const t = a.T ?? a.t ?? '—';
       const u = a.U ?? a.u ?? '—';

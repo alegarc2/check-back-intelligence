@@ -31,8 +31,19 @@ class BiaSlideEditor {
       .join('; ');
   }
 
+  static addonCells(addons, name) {
+    if (addons?.[name]) return addons[name];
+    const aliases = (CheckBack.Dashboard.Constants.ADDON_ALIASES || {})[name] || [];
+    for (let i = 0; i < aliases.length; i += 1) {
+      const alt = aliases[i];
+      if (addons?.[alt]) return addons[alt];
+    }
+    return {};
+  }
+
   static parseAddonsFromText(text) {
     const names = CheckBack.Dashboard.Constants.ADDON_ROWS;
+    const aliases = CheckBack.Dashboard.Constants.ADDON_ALIASES || {};
     const out = {};
     const raw = String(text || '').trim();
     if (!raw) return out;
@@ -45,17 +56,22 @@ class BiaSlideEditor {
       }
     }
     names.forEach((name) => {
-      const re = new RegExp(
-        `${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*([^;\\n]+)`,
-        'i'
-      );
-      const m = raw.match(re);
-      if (!m) return;
-      const parts = String(m[1])
-        .trim()
-        .split(/\s*\/\s*|\s+/);
-      if (parts.length >= 3) {
-        out[name] = { P: parts[0], T: parts[1], U: parts[2] };
+      const keys = [name].concat(aliases[name] || []);
+      for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const re = new RegExp(
+          `${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*([^;\\n]+)`,
+          'i'
+        );
+        const m = raw.match(re);
+        if (!m) continue;
+        const parts = String(m[1])
+          .trim()
+          .split(/\s*\/\s*|\s+/);
+        if (parts.length >= 3) {
+          out[name] = { P: parts[0], T: parts[1], U: parts[2] };
+          break;
+        }
       }
     });
     return out;

@@ -76,7 +76,7 @@ class BiaSlideRenderer {
   static renderAddonTable(addons) {
     const ADDON_ROWS = CheckBack.Dashboard.Constants.ADDON_ROWS;
     const tbody = ADDON_ROWS.map((name) => {
-      const a = addons?.[name] || {};
+      const a = BiaSlideEditor.addonCells(addons, name);
       const p = a.P ?? a.p ?? '—';
       const t = a.T ?? a.t ?? '—';
       const u = a.U ?? a.u ?? '—';

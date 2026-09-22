@@ -91,7 +91,7 @@ const BIA_SLIDES = [
         "T": "X",
         "U": "X"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -190,7 +190,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -289,7 +289,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -388,7 +388,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -487,7 +487,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -586,7 +586,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -686,7 +686,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -786,7 +786,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
@@ -974,7 +974,7 @@ const BIA_SLIDES = [
         "T": "-",
         "U": "-"
       },
-      "AI Premium": {
+      "Enhanced AI": {
         "P": "-",
         "T": "-",
         "U": "-"
