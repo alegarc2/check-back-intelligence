@@ -51,7 +51,7 @@ const SchemaDashboard = (function () {
     for (let r = 0; r <= maxScan; r++) {
       const cols = rowCellValues(ws, r).filter(Boolean);
       if (!cols.length) continue;
-      if (cols.includes('Opportunity Name')) return r;
+      if (cols.includes('Opportunity Name') || cols.includes('Account Name')) return r;
       if (CHECKBACK_MARKERS.some((m) => cols.includes(m))) return r;
       if (RENEWAL_MARKERS.every((m) => cols.includes(m))) return r;
     }

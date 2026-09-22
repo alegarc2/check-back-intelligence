@@ -15,7 +15,7 @@ The **dashboard only reads Excel/CSV**. It does not ingest PDFs or images direct
 Clone this repo anywhere. No parent monorepo or special folder layout required.
 
 ```bash
-git clone https://github.com/konyebin/check-back-intelligence.git
+git clone https://github.com/alegarc2/check-back-intelligence.git
 cd check-back-intelligence
 
 python3 -m venv .venv
@@ -43,7 +43,7 @@ export CHECK_BACK_VENV="$PWD/.venv"
 ./check-back dashboard
 ```
 
-The dashboard opens at `http://127.0.0.1:8765/index.html`. Use **📂 Reload spreadsheet** to pick any `.xlsx`, or **🔄 Reload baseline** after syncing the default workbook.
+The dashboard opens at `http://127.0.0.1:8765/index.html`. Use **📂 Reload spreadsheet** to pick any `.xlsx`, or **🔄 Reload baseline** after syncing the default workbook. Click a customer to open the Business Insight slide; **Save customer data** writes edits back to the local workbook, and **Save PDF** exports that slide.
 
 > **Note:** Opening `dashboard/index.html` directly (`file://`) will not work — browsers block local script loading. Always use `./check-back dashboard` or `cd dashboard && ./serve.sh`.
 
@@ -132,6 +132,21 @@ cd dashboard
 ./open-dashboard.sh        # start/reuse server + open browser
 ```
 
+### Workbook template
+
+Canonical file: `samples/check_back_template_v1.xlsx` (50 columns, single header row). `samples/check_back_template.xlsx` is a copy for older paths.
+
+Column A is **Account Name** (company). Column B is **Opportunity Name** (Salesforce opportunity — still the customer key for matching, search, and slides). Fill both when they differ.
+
+### Dashboard features (Check Back mode)
+
+- **Portfolio table** — Account Name first, then Opportunity Name; either cell opens the customer slide. Search matches both columns.
+- **Business Insight slide** — Account Name above the opportunity title, plus Subscription / Provisioning / Features panels.
+- **Save customer data** — writes in-slide edits back to the loaded `.xlsx` (local server only).
+- **Save PDF** — one-page customer PDF from workbook data (not a screenshot). Includes Account Name, license progress bars for Professional / Standard / Workspace, and clickable Sub #, Customer Org ID, S&C, and Success Portal links.
+- **License KPIs** — entitled / provisioned / active totals include Professional + Standard + Workspace.
+- **Charts** — license and migration-path bars open the matching customer slide.
+
 ### Dashboard modes (auto-detected from upload)
 
 | Upload contains | Mode |
@@ -144,7 +159,7 @@ cd dashboard
 
 Upload a Check Back `.xlsx` in the browser — all processing runs client-side.
 
-- **Hosted demo:** https://konyebin.github.io/GitHub/demos/check-back/index.html  
+- **Original hosted demo:** https://konyebin.github.io/GitHub/demos/check-back/index.html  
   (loads a sanitized sample workbook; no real customer data)
 
 To rebuild the static site for Pages:
@@ -229,6 +244,8 @@ Copy `.env.example` → `.env` for bot tokens. **Never commit `.env`.**
 
 ### Optional: Install Base fields
 
+`samples/install_base_sample.xlsx` is a demo inventory (not the Check Back template). When passed to `populate`, columns map through `config/field_mapping.yaml`. **Account Name** on the install-base sheet fills **Account Name** on the Check Back sheet; Opportunity Name still comes from PDFs / Salesforce.
+
 ```bash
 .venv/bin/python -m src.cli populate \
   --sources ./customer-pdfs \
@@ -247,7 +264,7 @@ check-back-intelligence/
 ├── src/                    # Python CLI pipeline
 ├── dashboard/              # static HTML/JS dashboard
 ├── webex_bot/              # Webex bot + tunnels
-├── samples/                # template xlsx, BIA slide PDF
+├── samples/                # v1 template (50 cols), install-base demo, BIA slide PDF
 ├── config/                 # field mapping YAML
 ├── tests/
 └── output/                 # your workbooks (gitignored — no customer data in repo)

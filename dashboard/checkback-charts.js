@@ -20,6 +20,7 @@ const CheckBackDashboard = (function () {
     GYR_COL,
   ];
   const PORTFOLIO_COLS = [
+    'Account Name',
     'Opportunity Name',
     GYR_COL,
     'Partner',
@@ -33,6 +34,7 @@ const CheckBackDashboard = (function () {
     'Migrating to',
   ];
   const DRILL_COLS = [
+    'Account Name',
     'Opportunity Name',
     'TCV $',
     GYR_COL,
@@ -46,6 +48,7 @@ const CheckBackDashboard = (function () {
     'CSM name',
   ];
   const HIGHLIGHT = new Set([
+    'Account Name',
     'Opportunity Name',
     'Entitled Lic Calling',
     'Active Lic Calling',
@@ -101,7 +104,7 @@ const CheckBackDashboard = (function () {
     grid.innerHTML = '';
     const sd = document.createElement('div');
     sd.className = 'filter-group';
-    sd.innerHTML = `<label class="filter-label">Opportunity Search</label><input class="search-input" placeholder="Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
+    sd.innerHTML = `<label class="filter-label">Account / Opportunity Search</label><input class="search-input" placeholder="Account or Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
     grid.appendChild(sd);
     FILTER_COLUMNS.forEach((col) => {
       if (!allColumns.includes(col)) return;
@@ -133,8 +136,8 @@ const CheckBackDashboard = (function () {
   }
 
   function applyFiltersAccountKey(row, acct) {
-    const key = row['Opportunity Name'] || row['Account Name'] || '';
-    return !acct || String(key).toLowerCase().includes(acct);
+    const hay = `${row['Account Name'] || ''} ${row['Opportunity Name'] || ''}`;
+    return !acct || String(hay).toLowerCase().includes(acct);
   }
 
   function fmtLicenseCount(n) {

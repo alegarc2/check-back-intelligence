@@ -72,23 +72,39 @@ class BiaSlidePdf {
       deck.gatheredBy || deck.gatheredDate
         ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
         : '';
+    const accountName = BiaSlidePdf.cleanText(deck.accountName);
+    const customerName = BiaSlidePdf.cleanText(deck.customerName || 'Customer');
+    const headerH = accountName ? 40 : 34;
 
     BiaSlidePdf.setFill(doc, BiaSlidePdf.COLORS.bg);
-    doc.rect(0, 0, pageW, 34, 'F');
+    doc.rect(0, 0, pageW, headerH, 'F');
     BiaSlidePdf.setFill(doc, BiaSlidePdf.COLORS.accent);
     doc.rect(0, 0, pageW, 3, 'F');
 
+    let yText = 12;
+    if (accountName) {
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
+      doc.text('ACCOUNT NAME', 12, yText);
+      doc.setFontSize(12);
+      BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.accent);
+      doc.text(accountName.substring(0, 80), 42, yText);
+      yText += 7;
+    }
+
     BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.text);
-    doc.setFontSize(16);
+    doc.setFontSize(accountName ? 14 : 16);
     doc.setFont(undefined, 'bold');
-    doc.text(BiaSlidePdf.cleanText(deck.customerName || 'Customer').substring(0, 72), 12, 14);
+    doc.text(customerName.substring(0, 72), 12, yText);
+    yText += 6;
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
-    doc.text('Business Insight and Analysis', 12, 20);
+    doc.text('Business Insight and Analysis', 12, yText);
     if (gathered) {
       doc.setFontSize(8);
-      doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, 26);
+      doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, yText + 5);
     }
 
     const badgeW = 30;
@@ -104,7 +120,7 @@ class BiaSlidePdf {
     doc.text(h.label.substring(0, 10), badgeX + badgeW / 2, badgeY + 13, { align: 'center' });
     doc.setFont(undefined, 'normal');
 
-    return 38;
+    return headerH + 4;
   }
 
   static drawTimeline(doc, deck, y, pageW) {
@@ -208,6 +224,7 @@ class BiaSlidePdf {
   static measureSubscriptionPanel(doc, deck, w) {
     const s = deck.subscription || {};
     let h = 11;
+    if (deck.accountName) h += BiaSlidePdf.measureKv(doc, 'Account Name', deck.accountName, w);
     if (deck.platforms) h += BiaSlidePdf.measureKv(doc, 'Platforms', deck.platforms, w);
     h += BiaSlidePdf.measureKv(doc, 'Term', s.term, w);
     h += BiaSlidePdf.measureKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), w);
@@ -430,6 +447,9 @@ class BiaSlidePdf {
     doc.text('SUBSCRIPTION REVIEW', x + 3, cy);
     doc.setFont(undefined, 'normal');
     cy += 5;
+    if (deck.accountName) {
+      cy = BiaSlidePdf.drawKv(doc, 'Account Name', deck.accountName, x + 3, cy, w - 6);
+    }
     if (deck.platforms) cy = BiaSlidePdf.drawKv(doc, 'Platforms', deck.platforms, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Term', s.term, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), x + 3, cy, w - 6);
@@ -739,7 +759,7 @@ class BiaSlidePdf {
     BiaSlidePdf.drawNotes(doc, sanitized, yAfter, pageW);
     BiaSlidePdf.drawFooter(doc, pageW);
 
-    const filename = options.filename || BiaSlidePdf.datedFilename(sanitized.customerName);
+    const filename = options.filename || BiaSlidePdf.datedFilename(sanitized.accountName || sanitized.customerName);
     doc.save(filename);
     return Promise.resolve(filename);
   }

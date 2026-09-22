@@ -174,6 +174,7 @@ const AccountInsight = (function () {
 
     return {
       name: row['Opportunity Name'] || 'Customer',
+      accountName: row['Account Name'] || '',
       sub: row['Sub #'] || '—',
       term,
       tcv: row['TCV $'] != null ? String(row['TCV $']) : '—',
@@ -205,6 +206,7 @@ const AccountInsight = (function () {
     <div class="insight-slide">
       <div class="insight-top">
         <div class="insight-title-block">
+          ${m.accountName ? `<div class="insight-account-line"><span class="insight-account-label">Account Name</span><span class="insight-account-name bia-editable-value" data-col="Account Name" contenteditable="false">${Html.esc(m.accountName)}</span></div>` : ''}
           <h1 class="insight-h1 bia-editable-value" data-col="Opportunity Name" contenteditable="false">${Html.esc(m.name)}</h1>
           <p class="insight-subtitle">Business Insight and Analysis</p>
           ${gathered ? `<p class="insight-meta">${Html.esc(gathered)}</p>` : ''}
@@ -213,6 +215,7 @@ const AccountInsight = (function () {
       <div class="insight-panels">
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
+          ${Html.kv('Account Name', m.accountName, 'Account Name')}
           ${Html.kv('Subscription', m.sub, 'Sub #')}
           ${Html.kv('Term / dates', m.term, 'Subscription dates')}
           ${Html.kv('TCV', m.tcv, 'TCV $')}

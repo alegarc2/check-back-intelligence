@@ -14,6 +14,7 @@ HDR_FONT = Font(bold=True, color="94A3B8", size=10)
 
 # Canonical columns from samples/check_back_template_v1.xlsx
 CHECK_BACK_HEADERS = [
+    "Account Name",
     "Opportunity Name",
     "Opportunity (linked)",
     "SL2",
@@ -74,7 +75,7 @@ def detect_header_row(ws, max_scan: int = 5) -> int:
     for r in range(1, max_scan + 1):
         for c in range(1, ws.max_column + 1):
             v = ws.cell(r, c).value
-            if v and str(v).strip() == "Opportunity Name":
+            if v and str(v).strip() in ("Opportunity Name", "Account Name"):
                 return r
     return 1
 

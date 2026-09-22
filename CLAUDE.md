@@ -19,7 +19,7 @@ cd check-back-intelligence
 
 ## Samples (in repo)
 
-- `samples/check_back_template_v1.xlsx` — canonical Check Back template (single header row, 49 columns)
+- `samples/check_back_template_v1.xlsx` — canonical Check Back template (single header row, 50 columns)
 - `samples/check_back_template.xlsx` — copy of v1 for backward-compatible paths
 - `samples/install_base_sample.xlsx` — optional install base mapping demo
 - `samples/Lookback-BIA-Slide-Template.pdf` — BIA slide reference

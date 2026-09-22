@@ -1,6 +1,6 @@
 # Install Base → Check Back column mapping
 install_base_to_checkback:
-  Account Name: Opportunity Name
+  Account Name: "Account Name"
   Collab AOV: "TCV $"
   Partner Name: Partner
   Subscription Ref Id: "Sub #"

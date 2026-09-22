@@ -174,6 +174,14 @@ class BiaSlideRenderer {
     return `<div class="bia-trends-row">${body}</div>`;
   }
 
+  static renderAccountNameLine(deck) {
+    const raw = BiaSanitizer.cleanVal(deck.accountName);
+    return `<div class="insight-account-line">
+      <span class="insight-account-label">Account Name</span>
+      <span class="insight-account-name bia-editable-value" data-col="Account Name" contenteditable="false">${raw ? DashboardHtml.esc(raw) : ''}</span>
+    </div>`;
+  }
+
   static render(slide) {
     const deck = BiaSlideMerger.sanitizeSlide(slide);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
@@ -205,6 +213,7 @@ class BiaSlideRenderer {
     <div class="insight-slide bia-slide">
       <div class="insight-top">
         <div class="insight-title-block">
+          ${BiaSlideRenderer.renderAccountNameLine(deck)}
           <h1 class="insight-h1 bia-editable-value" data-col="Opportunity Name" contenteditable="false">${DashboardHtml.esc(deck.customerName)}</h1>
           <p class="insight-subtitle">Business Insight and Analysis</p>
           ${gathered ? `<p class="insight-meta">${DashboardHtml.esc(gathered)}</p>` : ''}
@@ -220,6 +229,7 @@ class BiaSlideRenderer {
       <div class="insight-panels">
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
+          ${DashboardHtml.kv('Account Name', deck.accountName, 'Account Name')}
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}

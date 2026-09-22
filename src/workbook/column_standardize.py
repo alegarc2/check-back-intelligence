@@ -515,7 +515,7 @@ def detect_header_row(ws, max_scan: int = 5) -> int:
     for r in range(1, max_scan + 1):
         for c in range(1, ws.max_column + 1):
             v = ws.cell(r, c).value
-            if v and str(v).strip() == "Opportunity Name":
+            if v and str(v).strip() in ("Opportunity Name", "Account Name"):
                 return r
     return 2
 

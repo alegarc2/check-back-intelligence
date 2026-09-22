@@ -14,7 +14,8 @@ from src.ingest.install_base_mapper import (  # noqa: E402
 
 MINIMAL_CONFIG = {
     "install_base_to_checkback": {
-        "Account Name": "Opportunity Name",
+        "Account Name": "Account Name",
+        "Opportunity Name": "Opportunity Name",
         "Partner Name": "Partner",
         "Risk2_0_current": "(G/Y/R)",
         "Webex Calling MT Provisioned Seats": "Provisioned/Entitled Lic Calling",
@@ -38,7 +39,7 @@ def test_map_row_basic():
         "Webex Calling DI Provisioned Seats": 50,
     }
     row, gaps = map_row(ib)
-    assert row["Opportunity Name"] == "Test Corp"
+    assert row["Account Name"] == "Test Corp"
     assert row["Partner"] == "Partner X"
     assert row["(G/Y/R)"] == "G"
 

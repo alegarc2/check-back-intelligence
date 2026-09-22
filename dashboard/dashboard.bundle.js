@@ -39,6 +39,7 @@ CheckBack.Dashboard.Constants = {
     'AI Premium',
   ],
   PORTFOLIO_COLUMN_PREFER: [
+    'Account Name',
     'Opportunity Name',
     '(G/Y/R)',
     'Customer org id',
@@ -53,6 +54,7 @@ CheckBack.Dashboard.Constants = {
   ],
   /** Canonical export order from samples/check_back_template_v1.xlsx */
   TEMPLATE_COLUMN_ORDER: [
+    'Account Name',
     'Opportunity Name',
     'Opportunity (linked)',
     'SL2',
@@ -104,6 +106,7 @@ CheckBack.Dashboard.Constants = {
     'Recommended Actions',
   ],
   BIA_CANONICAL_COLS: new Set([
+    'Account Name',
     'Opportunity Name',
     'Customer org id',
     '(G/Y/R)',
@@ -1249,6 +1252,7 @@ class BiaWorkbookMapper {
       hasLicenseBreakdownCols || LicenseProductParser.hasPlWsBreakdown(lic);
 
     const slide = {
+      accountName: enriched['Account Name'] || '',
       customerName: enriched['Opportunity Name'] || 'Customer',
       orgId: String(enriched['Customer org id'] || '').trim(),
       gatheredBy: enriched['Data gathered by'] || '',
@@ -1327,6 +1331,7 @@ class BiaWorkbookMapper {
       if (val != null && String(val).trim() !== '') out[col] = val;
     };
 
+    set('Account Name', deck.accountName || wbRow['Account Name']);
     set('Opportunity Name', deck.customerName);
     set('Customer org id', deck.orgId);
     set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow[LEGACY_GYR_COL] || wbRow['Final Determination'] || '');
@@ -1516,6 +1521,7 @@ class BiaSlideMerger {
     return {
       ...slide,
       platforms: BiaSanitizer.sanitizeField(slide.platforms),
+      accountName: BiaSanitizer.sanitizeField(slide.accountName),
       subscription: {
         ...s,
         sub: BiaSanitizer.sanitizeField(s.sub),
@@ -1574,6 +1580,7 @@ class BiaSlideMerger {
     if (!BiaSanitizer.isEmptyVal(rowSlide.gatheredBy)) merged.gatheredBy = rowSlide.gatheredBy;
     if (!BiaSanitizer.isEmptyVal(rowSlide.gatheredDate)) merged.gatheredDate = rowSlide.gatheredDate;
     if (!BiaSanitizer.isEmptyVal(rowSlide.customerName)) merged.customerName = rowSlide.customerName;
+    if (!BiaSanitizer.isEmptyVal(rowSlide.accountName)) merged.accountName = rowSlide.accountName;
     if (!BiaSanitizer.isEmptyVal(rowSlide.health)) merged.health = rowSlide.health;
     if (!BiaSanitizer.isEmptyVal(rowSlide.platforms)) merged.platforms = rowSlide.platforms;
 
@@ -1813,6 +1820,14 @@ class BiaSlideRenderer {
     return `<div class="bia-trends-row">${body}</div>`;
   }
 
+  static renderAccountNameLine(deck) {
+    const raw = BiaSanitizer.cleanVal(deck.accountName);
+    return `<div class="insight-account-line">
+      <span class="insight-account-label">Account Name</span>
+      <span class="insight-account-name bia-editable-value" data-col="Account Name" contenteditable="false">${raw ? DashboardHtml.esc(raw) : ''}</span>
+    </div>`;
+  }
+
   static render(slide) {
     const deck = BiaSlideMerger.sanitizeSlide(slide);
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
@@ -1844,6 +1859,7 @@ class BiaSlideRenderer {
     <div class="insight-slide bia-slide">
       <div class="insight-top">
         <div class="insight-title-block">
+          ${BiaSlideRenderer.renderAccountNameLine(deck)}
           <h1 class="insight-h1 bia-editable-value" data-col="Opportunity Name" contenteditable="false">${DashboardHtml.esc(deck.customerName)}</h1>
           <p class="insight-subtitle">Business Insight and Analysis</p>
           ${gathered ? `<p class="insight-meta">${DashboardHtml.esc(gathered)}</p>` : ''}
@@ -1859,6 +1875,7 @@ class BiaSlideRenderer {
       <div class="insight-panels">
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
+          ${DashboardHtml.kv('Account Name', deck.accountName, 'Account Name')}
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}
@@ -1982,23 +1999,39 @@ class BiaSlidePdf {
       deck.gatheredBy || deck.gatheredDate
         ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
         : '';
+    const accountName = BiaSlidePdf.cleanText(deck.accountName);
+    const customerName = BiaSlidePdf.cleanText(deck.customerName || 'Customer');
+    const headerH = accountName ? 40 : 34;
 
     BiaSlidePdf.setFill(doc, BiaSlidePdf.COLORS.bg);
-    doc.rect(0, 0, pageW, 34, 'F');
+    doc.rect(0, 0, pageW, headerH, 'F');
     BiaSlidePdf.setFill(doc, BiaSlidePdf.COLORS.accent);
     doc.rect(0, 0, pageW, 3, 'F');
 
+    let yText = 12;
+    if (accountName) {
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
+      doc.text('ACCOUNT NAME', 12, yText);
+      doc.setFontSize(12);
+      BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.accent);
+      doc.text(accountName.substring(0, 80), 42, yText);
+      yText += 7;
+    }
+
     BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.text);
-    doc.setFontSize(16);
+    doc.setFontSize(accountName ? 14 : 16);
     doc.setFont(undefined, 'bold');
-    doc.text(BiaSlidePdf.cleanText(deck.customerName || 'Customer').substring(0, 72), 12, 14);
+    doc.text(customerName.substring(0, 72), 12, yText);
+    yText += 6;
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
-    doc.text('Business Insight and Analysis', 12, 20);
+    doc.text('Business Insight and Analysis', 12, yText);
     if (gathered) {
       doc.setFontSize(8);
-      doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, 26);
+      doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, yText + 5);
     }
 
     const badgeW = 30;
@@ -2014,7 +2047,7 @@ class BiaSlidePdf {
     doc.text(h.label.substring(0, 10), badgeX + badgeW / 2, badgeY + 13, { align: 'center' });
     doc.setFont(undefined, 'normal');
 
-    return 38;
+    return headerH + 4;
   }
 
   static drawTimeline(doc, deck, y, pageW) {
@@ -2118,6 +2151,7 @@ class BiaSlidePdf {
   static measureSubscriptionPanel(doc, deck, w) {
     const s = deck.subscription || {};
     let h = 11;
+    if (deck.accountName) h += BiaSlidePdf.measureKv(doc, 'Account Name', deck.accountName, w);
     if (deck.platforms) h += BiaSlidePdf.measureKv(doc, 'Platforms', deck.platforms, w);
     h += BiaSlidePdf.measureKv(doc, 'Term', s.term, w);
     h += BiaSlidePdf.measureKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), w);
@@ -2340,6 +2374,9 @@ class BiaSlidePdf {
     doc.text('SUBSCRIPTION REVIEW', x + 3, cy);
     doc.setFont(undefined, 'normal');
     cy += 5;
+    if (deck.accountName) {
+      cy = BiaSlidePdf.drawKv(doc, 'Account Name', deck.accountName, x + 3, cy, w - 6);
+    }
     if (deck.platforms) cy = BiaSlidePdf.drawKv(doc, 'Platforms', deck.platforms, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Term', s.term, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), x + 3, cy, w - 6);
@@ -2649,7 +2686,7 @@ class BiaSlidePdf {
     BiaSlidePdf.drawNotes(doc, sanitized, yAfter, pageW);
     BiaSlidePdf.drawFooter(doc, pageW);
 
-    const filename = options.filename || BiaSlidePdf.datedFilename(sanitized.customerName);
+    const filename = options.filename || BiaSlidePdf.datedFilename(sanitized.accountName || sanitized.customerName);
     doc.save(filename);
     return Promise.resolve(filename);
   }
@@ -2947,7 +2984,7 @@ const SchemaDashboard = (function () {
     for (let r = 0; r <= maxScan; r++) {
       const cols = rowCellValues(ws, r).filter(Boolean);
       if (!cols.length) continue;
-      if (cols.includes('Opportunity Name')) return r;
+      if (cols.includes('Opportunity Name') || cols.includes('Account Name')) return r;
       if (CHECKBACK_MARKERS.some((m) => cols.includes(m))) return r;
       if (RENEWAL_MARKERS.every((m) => cols.includes(m))) return r;
     }
@@ -3102,6 +3139,7 @@ const CheckBackDashboard = (function () {
     GYR_COL,
   ];
   const PORTFOLIO_COLS = [
+    'Account Name',
     'Opportunity Name',
     GYR_COL,
     'Partner',
@@ -3115,6 +3153,7 @@ const CheckBackDashboard = (function () {
     'Migrating to',
   ];
   const DRILL_COLS = [
+    'Account Name',
     'Opportunity Name',
     'TCV $',
     GYR_COL,
@@ -3128,6 +3167,7 @@ const CheckBackDashboard = (function () {
     'CSM name',
   ];
   const HIGHLIGHT = new Set([
+    'Account Name',
     'Opportunity Name',
     'Entitled Lic Calling',
     'Active Lic Calling',
@@ -3183,7 +3223,7 @@ const CheckBackDashboard = (function () {
     grid.innerHTML = '';
     const sd = document.createElement('div');
     sd.className = 'filter-group';
-    sd.innerHTML = `<label class="filter-label">Opportunity Search</label><input class="search-input" placeholder="Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
+    sd.innerHTML = `<label class="filter-label">Account / Opportunity Search</label><input class="search-input" placeholder="Account or Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
     grid.appendChild(sd);
     FILTER_COLUMNS.forEach((col) => {
       if (!allColumns.includes(col)) return;
@@ -3215,8 +3255,8 @@ const CheckBackDashboard = (function () {
   }
 
   function applyFiltersAccountKey(row, acct) {
-    const key = row['Opportunity Name'] || row['Account Name'] || '';
-    return !acct || String(key).toLowerCase().includes(acct);
+    const hay = `${row['Account Name'] || ''} ${row['Opportunity Name'] || ''}`;
+    return !acct || String(hay).toLowerCase().includes(acct);
   }
 
   function fmtLicenseCount(n) {
@@ -5728,6 +5768,7 @@ const AccountInsight = (function () {
 
     return {
       name: row['Opportunity Name'] || 'Customer',
+      accountName: row['Account Name'] || '',
       sub: row['Sub #'] || '—',
       term,
       tcv: row['TCV $'] != null ? String(row['TCV $']) : '—',
@@ -5759,6 +5800,7 @@ const AccountInsight = (function () {
     <div class="insight-slide">
       <div class="insight-top">
         <div class="insight-title-block">
+          ${m.accountName ? `<div class="insight-account-line"><span class="insight-account-label">Account Name</span><span class="insight-account-name bia-editable-value" data-col="Account Name" contenteditable="false">${Html.esc(m.accountName)}</span></div>` : ''}
           <h1 class="insight-h1 bia-editable-value" data-col="Opportunity Name" contenteditable="false">${Html.esc(m.name)}</h1>
           <p class="insight-subtitle">Business Insight and Analysis</p>
           ${gathered ? `<p class="insight-meta">${Html.esc(gathered)}</p>` : ''}
@@ -5767,6 +5809,7 @@ const AccountInsight = (function () {
       <div class="insight-panels">
         <section class="insight-panel insight-panel-cyan">
           <h3>Subscription Review</h3>
+          ${Html.kv('Account Name', m.accountName, 'Account Name')}
           ${Html.kv('Subscription', m.sub, 'Sub #')}
           ${Html.kv('Term / dates', m.term, 'Subscription dates')}
           ${Html.kv('TCV', m.tcv, 'TCV $')}

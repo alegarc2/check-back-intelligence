@@ -35,6 +35,7 @@ def test_v1_template_matches_check_back_headers():
     repair_v1_template(V1)
     xlsx_headers = _read_xlsx_headers()
     assert xlsx_headers == CHECK_BACK_HEADERS
+    assert CHECK_BACK_HEADERS[0] == "Account Name"
     assert CHECK_BACK_HEADERS[-1] == "Recommended Actions"
     assert "Success Portal" in CHECK_BACK_HEADERS
     assert GYR_COL in CHECK_BACK_HEADERS

@@ -6,6 +6,9 @@ rules_version: 1
 red_font: true  # invalid / needs-review cells → red text
 
 columns:
+  Account Name:
+    action: trim
+
   Opportunity Name:
     action: trim
 

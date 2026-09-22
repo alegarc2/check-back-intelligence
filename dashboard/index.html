@@ -335,6 +335,10 @@
   .insight-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:16px;}
   .insight-title-block{flex:1;min-width:0;max-width:calc(100% - 140px);}
   .insight-h1{font-size:clamp(20px,2.1vw,28px);font-weight:800;line-height:1.15;margin-bottom:6px;}
+  .insight-account-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 4px;}
+  .insight-account-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);}
+  .insight-account-name{font-size:15px;font-weight:700;color:#67e8f9;min-height:1.2em;}
+  .bia-slide-editing .insight-account-name[contenteditable="true"]:empty::before{content:'Add account name…';color:var(--text-muted);font-style:italic;font-weight:500;}
   .insight-subtitle{font-size:16px;color:var(--text-secondary);font-weight:600;}
   .insight-meta{font-size:12px;color:var(--text-muted);margin-top:6px;}
   .insight-health{min-width:120px;height:120px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
@@ -1417,7 +1421,7 @@ function applyFilters(){
         if(CheckBackDashboard.rowGyrValue(row)!==String(val))return false;
       }else if(String(row[col])!==String(val))return false;
     }
-    if(acct){const ak=row['Account Name']||row['Opportunity Name']||'';if(!String(ak).toLowerCase().includes(acct))return false;}
+    if(acct){const hay=`${row['Account Name']||''} ${row['Opportunity Name']||''}`.toLowerCase();if(!hay.includes(acct))return false;}
     if(tableSearchTerm){const ts=tableSearchTerm.toLowerCase();return Object.values(row).some(v=>String(v).toLowerCase().includes(ts));}
     return true;
   });
@@ -2098,7 +2102,7 @@ function renderTableBody(){
         const style=PortfolioColumns.widthStyle(col);
         return `<td class="col-collapsed" data-col="${col.replace(/"/g,'&quot;')}"${style?` style="${style}"`:''} title="${title.replace(/"/g,'&quot;')}">·</td>`;
       }
-      if(dashboardMode==='checkback'&&col==='Opportunity Name'){
+      if(dashboardMode==='checkback'&&(col==='Opportunity Name'||col==='Account Name')){
         const nm=String(row[col]||'—').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         val=`<button type="button" class="customer-link" onclick="event.stopPropagation();openCustomerInsight(${start+i})">${nm}</button>`;
         rawHtml=true;
@@ -2245,7 +2249,7 @@ function exportCheckBackPdf(){
   let cols=[];
   if(typeof tableDisplayColumns==='function')cols=tableDisplayColumns().slice(0,10);
   if(!cols.length&&typeof CheckBackDashboard!=='undefined'&&CheckBackDashboard.getPortfolioCols)cols=CheckBackDashboard.getPortfolioCols().slice(0,10);
-  if(!cols.length)cols=['Opportunity Name','TCV $','Provisioned/Entitled Lic Calling','Active Lic Calling','Partner','Sub #'];
+  if(!cols.length)cols=['Account Name','Opportunity Name','TCV $','Provisioned/Entitled Lic Calling','Active Lic Calling','Partner','Sub #'];
   cols=cols.filter(c=>c&&c!=='_biaSlideOnly');
   doc.autoTable({head:[cols],body:d.slice(0,100).map(r=>cols.map(c=>pdfPlainCell(r,c).substring(0,45))),startY:55,styles:{fontSize:7,cellPadding:2,fillColor:[26,34,53],textColor:[241,245,249],lineColor:[30,58,95],lineWidth:.3},headStyles:{fillColor:[0,188,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[17,24,39]},margin:{left:10,right:10}});
   doc.setTextColor(100,116,139);doc.setFontSize(7);doc.text('Check Back Intelligence | Lookback Program | Confidential',14,doc.internal.pageSize.height-6);

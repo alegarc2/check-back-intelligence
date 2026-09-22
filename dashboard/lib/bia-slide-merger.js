@@ -9,6 +9,7 @@ class BiaSlideMerger {
     return {
       ...slide,
       platforms: BiaSanitizer.sanitizeField(slide.platforms),
+      accountName: BiaSanitizer.sanitizeField(slide.accountName),
       subscription: {
         ...s,
         sub: BiaSanitizer.sanitizeField(s.sub),
@@ -67,6 +68,7 @@ class BiaSlideMerger {
     if (!BiaSanitizer.isEmptyVal(rowSlide.gatheredBy)) merged.gatheredBy = rowSlide.gatheredBy;
     if (!BiaSanitizer.isEmptyVal(rowSlide.gatheredDate)) merged.gatheredDate = rowSlide.gatheredDate;
     if (!BiaSanitizer.isEmptyVal(rowSlide.customerName)) merged.customerName = rowSlide.customerName;
+    if (!BiaSanitizer.isEmptyVal(rowSlide.accountName)) merged.accountName = rowSlide.accountName;
     if (!BiaSanitizer.isEmptyVal(rowSlide.health)) merged.health = rowSlide.health;
     if (!BiaSanitizer.isEmptyVal(rowSlide.platforms)) merged.platforms = rowSlide.platforms;
 

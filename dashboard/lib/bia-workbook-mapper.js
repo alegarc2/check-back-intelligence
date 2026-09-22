@@ -100,6 +100,7 @@ class BiaWorkbookMapper {
       hasLicenseBreakdownCols || LicenseProductParser.hasPlWsBreakdown(lic);
 
     const slide = {
+      accountName: enriched['Account Name'] || '',
       customerName: enriched['Opportunity Name'] || 'Customer',
       orgId: String(enriched['Customer org id'] || '').trim(),
       gatheredBy: enriched['Data gathered by'] || '',
@@ -178,6 +179,7 @@ class BiaWorkbookMapper {
       if (val != null && String(val).trim() !== '') out[col] = val;
     };
 
+    set('Account Name', deck.accountName || wbRow['Account Name']);
     set('Opportunity Name', deck.customerName);
     set('Customer org id', deck.orgId);
     set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow[LEGACY_GYR_COL] || wbRow['Final Determination'] || '');

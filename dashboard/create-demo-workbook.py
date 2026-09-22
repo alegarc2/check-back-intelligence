@@ -19,6 +19,7 @@ HDR_FONT = Font(bold=True, color="94A3B8", size=10)
 
 DEMO_ROWS = [
     {
+        "Account Name": "Demo School District",
         "Opportunity Name": "Demo School District (sample)",
         "SL2": "US PS Market",
         "TCV $": 850000,
@@ -31,6 +32,7 @@ DEMO_ROWS = [
         "Platforms": "Webex",
     },
     {
+        "Account Name": "Demo Health System",
         "Opportunity Name": "Demo Health System (sample)",
         "SL2": "US Commercial",
         "TCV $": 1200000,
@@ -43,6 +45,7 @@ DEMO_ROWS = [
         "Platforms": "Webex",
     },
     {
+        "Account Name": "Demo Manufacturing Co",
         "Opportunity Name": "Demo Manufacturing Co (sample)",
         "SL2": "EMEA__UKI",
         "TCV $": 640000,

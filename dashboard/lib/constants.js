@@ -33,6 +33,7 @@ CheckBack.Dashboard.Constants = {
     'AI Premium',
   ],
   PORTFOLIO_COLUMN_PREFER: [
+    'Account Name',
     'Opportunity Name',
     '(G/Y/R)',
     'Customer org id',
@@ -47,6 +48,7 @@ CheckBack.Dashboard.Constants = {
   ],
   /** Canonical export order from samples/check_back_template_v1.xlsx */
   TEMPLATE_COLUMN_ORDER: [
+    'Account Name',
     'Opportunity Name',
     'Opportunity (linked)',
     'SL2',
@@ -98,6 +100,7 @@ CheckBack.Dashboard.Constants = {
     'Recommended Actions',
   ],
   BIA_CANONICAL_COLS: new Set([
+    'Account Name',
     'Opportunity Name',
     'Customer org id',
     '(G/Y/R)',
