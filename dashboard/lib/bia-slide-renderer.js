@@ -62,10 +62,10 @@ class BiaSlideRenderer {
     if (!rows.length) {
       const provRaw = BiaSanitizer.sanitizeField(p.provisioned || '');
       if (!provRaw) return '';
-      return `<p class="bia-feature-caption">Provisioned licenses</p>${DashboardHtml.kv('Licenses', provRaw, 'Provisioned/Entitled Lic Calling')}`;
+      return `<p class="bia-feature-caption">Licenses (used/entitled)</p>${DashboardHtml.kv('Licenses', provRaw, 'Provisioned/Entitled Lic Calling')}`;
     }
 
-    const parts = ['<p class="bia-feature-caption">Provisioned licenses</p>'];
+    const parts = ['<p class="bia-feature-caption">Licenses (used/entitled)</p>'];
     rows.forEach(([key, val]) => {
       const label = LicenseProductParser.DISPLAY_LABELS[key] || key;
       parts.push(DashboardHtml.licBar(label, val));
@@ -233,7 +233,7 @@ class BiaSlideRenderer {
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}
-          ${DashboardHtml.kv('Total Recurring Revenue (AAR)', s.aar, 'AAR $')}
+          ${DashboardHtml.kv('Annual Recurring Revenue (ARR)', s.aar, 'AAR $')}
           ${DashboardHtml.kv('Collab AE/SE', s.collabAe, 'Collab AE/SE')}
           ${DashboardHtml.kv('Segment', s.segment, 'SL2')}
           ${DashboardHtml.kv('Partner', s.partner, 'Partner')}
@@ -244,7 +244,7 @@ class BiaSlideRenderer {
         <section class="insight-panel insight-panel-orange">
           <h3>Provisioning &amp; Usage Data</h3>
           ${DashboardHtml.kv('Customer Org ID', p.orgId || deck.orgId, 'Customer org id')}
-          ${DashboardHtml.kv('Licenses (prov/ent)', p.entitled, 'Provisioned/Entitled Lic Calling')}
+          ${DashboardHtml.kv('Licenses (provisioned/entitled)', p.entitled, 'Provisioned/Entitled Lic Calling')}
           ${BiaSlideRenderer.renderProvisionedBlock(p)}
           ${DashboardHtml.kv('Active Users', p.activeUsers, 'Active Lic Calling')}
           ${DashboardHtml.kv('External Calls vs Total', p.externalCalls, 'External calls')}

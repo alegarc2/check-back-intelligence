@@ -121,7 +121,7 @@ def parse_customer_slide(text: str, page: int) -> dict | None:
     sub = _m(r"Subscription:\s*([Sub\d,\s]+)", text)
     term = _m(r"Term:\s*([^\n]+)", text)
     tcv = _m(r"Total Contract Value:\s*([^\n]+)", text)
-    aar = _m(r"Total Recurring Revenue \((?:AAR|ARR)\):\s*([^\n]+)", text)
+    aar = _m(r"(?:Annual|Total) Recurring Revenue \((?:AAR|ARR)\):\s*([^\n]+)", text)
     entitled = _m(r"Entitled Licenses:\s*([^\n]+)", text)
     if not entitled:
         entitled = _m(r"Entitled Licenses:\s*([^\n]+)", text)

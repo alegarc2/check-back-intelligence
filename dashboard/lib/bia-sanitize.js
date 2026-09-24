@@ -64,6 +64,10 @@ class BiaSanitizer {
     }).format(n);
   }
 
+  static isMoneyColumn(col) {
+    return col === 'TCV $' || col === 'AAR $';
+  }
+
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
   static normalizeMoneyColumnValue(raw) {
     const n = BiaSanitizer.parseMoneyNumber(raw);
@@ -178,14 +182,21 @@ class BiaSanitizer {
     return 'neutral';
   }
 
-  /** Display trend metrics with a trailing % for numeric workbook values. */
+  /** Display trend metrics as signed percents (Excel stores 2.6% as 0.026). */
   static formatTrendDisplay(raw) {
     const s = BiaSanitizer.sanitizeField(raw);
     if (!s) return '';
-    if (/%/.test(s)) return s;
-    const compact = s.match(/^([-+]?\d+(?:\.\d+)?)$/);
-    if (compact) return `${compact[1]}%`;
-    return s;
+    const m = s.match(/([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)/);
+    if (!m) return s;
+    let n = parseFloat(m[1]);
+    if (Number.isNaN(n)) return s;
+    const hadPercent = /%/.test(s);
+    if (!hadPercent && Math.abs(n) > 0 && Math.abs(n) <= 1) n *= 100;
+    const rounded =
+      Math.abs(n - Math.round(n)) < 0.05 ? Math.round(n) : Math.round(n * 10) / 10;
+    const num = `${rounded > 0 ? '+' : ''}${rounded}%`;
+    const dir = /\bDOWN\b/i.test(s) ? 'DOWN ' : /\bUP\b/i.test(s) ? 'UP ' : '';
+    return `${dir}${num}`.trim();
   }
 
   /** Workbook storage — strip trailing % from trend columns. */

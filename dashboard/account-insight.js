@@ -38,8 +38,19 @@ const AccountInsight = (function () {
     const posEl = document.getElementById('accountInsightNavPos');
     const n = list.length;
     const i = _ctx.listIndex;
-    if (prevBtn) prevBtn.disabled = i <= 0;
-    if (nextBtn) nextBtn.disabled = i < 0 || i >= n - 1;
+    const editing = Boolean(_ctx.editMode);
+    if (prevBtn) {
+      prevBtn.disabled = editing || i <= 0;
+      prevBtn.title = editing
+        ? 'Finish editing before changing customers'
+        : 'Previous customer (←)';
+    }
+    if (nextBtn) {
+      nextBtn.disabled = editing || i < 0 || i >= n - 1;
+      nextBtn.title = editing
+        ? 'Finish editing before changing customers'
+        : 'Next customer (→)';
+    }
     if (posEl) {
       posEl.textContent = n > 0 && i >= 0 ? `${i + 1} / ${n}` : '';
     }
@@ -97,6 +108,7 @@ const AccountInsight = (function () {
     if (!overlay || !body) return;
     saveCtx(row);
     _ctx.listIndex = typeof listIndex === 'number' ? listIndex : findListIndex(row);
+    _ctx.editMode = false;
     _ctx.dirty = false;
     body.innerHTML = html;
     wireEditListeners(slideRoot());
@@ -120,6 +132,7 @@ const AccountInsight = (function () {
     _ctx.editMode = !_ctx.editMode;
     Editor.setEditMode(root, _ctx.editMode);
     updateEditButton();
+    updateNavButtons();
     if (_ctx.editMode) {
       const first = root.querySelector('.bia-editable-value[data-col]');
       if (first) first.focus();
@@ -219,13 +232,13 @@ const AccountInsight = (function () {
           ${Html.kv('Subscription', m.sub, 'Sub #')}
           ${Html.kv('Term / dates', m.term, 'Subscription dates')}
           ${Html.kv('TCV', m.tcv, 'TCV $')}
-          ${Html.kv('AAR', m.aar, 'AAR $')}
+          ${Html.kv('Annual Recurring Revenue (ARR)', m.aar, 'AAR $')}
           ${Html.kv('Partner', m.partner, 'Partner')}
         </section>
         <section class="insight-panel insight-panel-orange">
           <h3>Provisioning &amp; Usage Data</h3>
           ${Html.kv('Customer Org ID', m.orgId, 'Customer org id')}
-          ${Html.kv('Licenses (prov/ent)', m.entitled, 'Provisioned/Entitled Lic Calling')}
+          ${Html.kv('Licenses (provisioned/entitled)', m.entitled, 'Provisioned/Entitled Lic Calling')}
           ${Html.kv('Active', m.active, 'Active Lic Calling')}
         </section>
         <section class="insight-panel insight-panel-magenta">
@@ -250,6 +263,7 @@ const AccountInsight = (function () {
   }
 
   function navigateTo(delta) {
+    if (_ctx.editMode) return false;
     const list = filteredRows();
     if (!list.length) return false;
     const nextIdx =
@@ -346,5 +360,6 @@ const AccountInsight = (function () {
     exportPdf,
     flushPendingEdits,
     isOverlayOpen,
+    isEditMode: () => Boolean(_ctx.editMode),
   };
 })();

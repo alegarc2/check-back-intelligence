@@ -140,7 +140,7 @@ class BiaSlideEditor {
     if (col === GYR_COL || col === LEGACY_GYR_COL) {
       return BiaSanitizer.normalizeGyrColumnValue(text);
     }
-    if (col === 'TCV $') {
+    if (BiaSanitizer.isMoneyColumn(col)) {
       const stored = el.getAttribute('data-raw-value');
       if (stored != null && stored !== '') {
         const displayed = BiaSanitizer.formatMoneyDisplay(stored);
@@ -168,7 +168,7 @@ class BiaSlideEditor {
     if (col === GYR_COL || col === LEGACY_GYR_COL) {
       return BiaSanitizer.normalizeGyrColumnValue(val);
     }
-    if (col === 'TCV $') {
+    if (BiaSanitizer.isMoneyColumn(col)) {
       return BiaSanitizer.normalizeMoneyColumnValue(val);
     }
     if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(val);

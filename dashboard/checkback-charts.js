@@ -477,6 +477,13 @@ const CheckBackDashboard = (function () {
       const n = numVal(val);
       return fmt(n);
     }
+    if (
+      (col === 'Trend active users 90d' || col === 'Trend call volume 90d') &&
+      typeof BiaSanitizer !== 'undefined' &&
+      BiaSanitizer.formatTrendDisplay
+    ) {
+      return BiaSanitizer.formatTrendDisplay(val) || val;
+    }
     return val;
   }
 

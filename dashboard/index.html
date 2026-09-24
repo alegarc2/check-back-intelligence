@@ -2290,6 +2290,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 document.addEventListener('keydown',e=>{
   if(typeof AccountInsight==='undefined'||!AccountInsight.isOverlayOpen())return;
   if(e.key==='Escape'){AccountInsight.close();return;}
+  if(AccountInsight.isEditMode&&AccountInsight.isEditMode())return;
   if(e.key==='ArrowLeft'){e.preventDefault();AccountInsight.previous();return;}
   if(e.key==='ArrowRight'){e.preventDefault();AccountInsight.next();}
 });

@@ -96,7 +96,7 @@ class DashboardHtml {
   static editableAttrs(col, rawValue) {
     if (!col) return '';
     let extra = '';
-    if (col === 'TCV $' && rawValue != null && String(rawValue).trim() !== '') {
+    if (BiaSanitizer.isMoneyColumn(col) && rawValue != null && String(rawValue).trim() !== '') {
       extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
     }
     return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
@@ -112,7 +112,7 @@ class DashboardHtml {
       raw.length > 72 ||
       /^https?:\/\//i.test(raw);
     let inner = DashboardHtml.esc(raw);
-    if (options.moneyDisplay || col === 'TCV $') {
+    if (options.moneyDisplay || BiaSanitizer.isMoneyColumn(col)) {
       inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
     }
     if (label === 'Customer Org ID' && !col) {

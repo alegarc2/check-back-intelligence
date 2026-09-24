@@ -230,6 +230,10 @@ class BiaSanitizer {
     }).format(n);
   }
 
+  static isMoneyColumn(col) {
+    return col === 'TCV $' || col === 'AAR $';
+  }
+
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
   static normalizeMoneyColumnValue(raw) {
     const n = BiaSanitizer.parseMoneyNumber(raw);
@@ -344,14 +348,21 @@ class BiaSanitizer {
     return 'neutral';
   }
 
-  /** Display trend metrics with a trailing % for numeric workbook values. */
+  /** Display trend metrics as signed percents (Excel stores 2.6% as 0.026). */
   static formatTrendDisplay(raw) {
     const s = BiaSanitizer.sanitizeField(raw);
     if (!s) return '';
-    if (/%/.test(s)) return s;
-    const compact = s.match(/^([-+]?\d+(?:\.\d+)?)$/);
-    if (compact) return `${compact[1]}%`;
-    return s;
+    const m = s.match(/([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)/);
+    if (!m) return s;
+    let n = parseFloat(m[1]);
+    if (Number.isNaN(n)) return s;
+    const hadPercent = /%/.test(s);
+    if (!hadPercent && Math.abs(n) > 0 && Math.abs(n) <= 1) n *= 100;
+    const rounded =
+      Math.abs(n - Math.round(n)) < 0.05 ? Math.round(n) : Math.round(n * 10) / 10;
+    const num = `${rounded > 0 ? '+' : ''}${rounded}%`;
+    const dir = /\bDOWN\b/i.test(s) ? 'DOWN ' : /\bUP\b/i.test(s) ? 'UP ' : '';
+    return `${dir}${num}`.trim();
   }
 
   /** Workbook storage — strip trailing % from trend columns. */
@@ -461,7 +472,7 @@ class DashboardHtml {
   static editableAttrs(col, rawValue) {
     if (!col) return '';
     let extra = '';
-    if (col === 'TCV $' && rawValue != null && String(rawValue).trim() !== '') {
+    if (BiaSanitizer.isMoneyColumn(col) && rawValue != null && String(rawValue).trim() !== '') {
       extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
     }
     return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
@@ -477,7 +488,7 @@ class DashboardHtml {
       raw.length > 72 ||
       /^https?:\/\//i.test(raw);
     let inner = DashboardHtml.esc(raw);
-    if (options.moneyDisplay || col === 'TCV $') {
+    if (options.moneyDisplay || BiaSanitizer.isMoneyColumn(col)) {
       inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
     }
     if (label === 'Customer Org ID' && !col) {
@@ -1711,10 +1722,10 @@ class BiaSlideRenderer {
     if (!rows.length) {
       const provRaw = BiaSanitizer.sanitizeField(p.provisioned || '');
       if (!provRaw) return '';
-      return `<p class="bia-feature-caption">Provisioned licenses</p>${DashboardHtml.kv('Licenses', provRaw, 'Provisioned/Entitled Lic Calling')}`;
+      return `<p class="bia-feature-caption">Licenses (used/entitled)</p>${DashboardHtml.kv('Licenses', provRaw, 'Provisioned/Entitled Lic Calling')}`;
     }
 
-    const parts = ['<p class="bia-feature-caption">Provisioned licenses</p>'];
+    const parts = ['<p class="bia-feature-caption">Licenses (used/entitled)</p>'];
     rows.forEach(([key, val]) => {
       const label = LicenseProductParser.DISPLAY_LABELS[key] || key;
       parts.push(DashboardHtml.licBar(label, val));
@@ -1882,7 +1893,7 @@ class BiaSlideRenderer {
           ${deck.platforms ? DashboardHtml.kv('Platforms', deck.platforms, 'Platforms') : ''}
           ${DashboardHtml.kv('Term', s.term, 'Subscription dates')}
           ${DashboardHtml.kv('Total Contract Value', s.tcv, 'TCV $')}
-          ${DashboardHtml.kv('Total Recurring Revenue (AAR)', s.aar, 'AAR $')}
+          ${DashboardHtml.kv('Annual Recurring Revenue (ARR)', s.aar, 'AAR $')}
           ${DashboardHtml.kv('Collab AE/SE', s.collabAe, 'Collab AE/SE')}
           ${DashboardHtml.kv('Segment', s.segment, 'SL2')}
           ${DashboardHtml.kv('Partner', s.partner, 'Partner')}
@@ -1893,7 +1904,7 @@ class BiaSlideRenderer {
         <section class="insight-panel insight-panel-orange">
           <h3>Provisioning &amp; Usage Data</h3>
           ${DashboardHtml.kv('Customer Org ID', p.orgId || deck.orgId, 'Customer org id')}
-          ${DashboardHtml.kv('Licenses (prov/ent)', p.entitled, 'Provisioned/Entitled Lic Calling')}
+          ${DashboardHtml.kv('Licenses (provisioned/entitled)', p.entitled, 'Provisioned/Entitled Lic Calling')}
           ${BiaSlideRenderer.renderProvisionedBlock(p)}
           ${DashboardHtml.kv('Active Users', p.activeUsers, 'Active Lic Calling')}
           ${DashboardHtml.kv('External Calls vs Total', p.externalCalls, 'External calls')}
@@ -2158,7 +2169,7 @@ class BiaSlidePdf {
     if (deck.platforms) h += BiaSlidePdf.measureKv(doc, 'Platforms', deck.platforms, w);
     h += BiaSlidePdf.measureKv(doc, 'Term', s.term, w);
     h += BiaSlidePdf.measureKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), w);
-    h += BiaSlidePdf.measureKv(doc, 'Total Recurring Revenue (AAR)', s.aar, w);
+    h += BiaSlidePdf.measureKv(doc, 'Annual Recurring Revenue (ARR)', BiaSlidePdf.formatMoneyValue(s.aar), w);
     h += BiaSlidePdf.measureKv(doc, 'Collab AE/SE', s.collabAe, w);
     h += BiaSlidePdf.measureKv(doc, 'Segment', s.segment, w);
     h += BiaSlidePdf.measureKv(doc, 'Partner', s.partner, w);
@@ -2172,7 +2183,7 @@ class BiaSlidePdf {
     let h = 11;
     const orgId = p.orgId || deck.orgId;
     h += BiaSlidePdf.measureKv(doc, 'Customer Org ID', orgId, w);
-    h += BiaSlidePdf.measureKv(doc, 'Licenses (prov/ent)', p.entitled, w);
+    h += BiaSlidePdf.measureKv(doc, 'Licenses (provisioned/entitled)', p.entitled, w);
     const provRows = BiaSlidePdf.callingLicenseRows(p, deck);
     if (provRows.length) {
       h += 3.5;
@@ -2383,7 +2394,7 @@ class BiaSlidePdf {
     if (deck.platforms) cy = BiaSlidePdf.drawKv(doc, 'Platforms', deck.platforms, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Term', s.term, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), x + 3, cy, w - 6);
-    cy = BiaSlidePdf.drawKv(doc, 'Total Recurring Revenue (AAR)', s.aar, x + 3, cy, w - 6);
+    cy = BiaSlidePdf.drawKv(doc, 'Annual Recurring Revenue (ARR)', BiaSlidePdf.formatMoneyValue(s.aar), x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Collab AE/SE', s.collabAe, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Segment', s.segment, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Partner', s.partner, x + 3, cy, w - 6);
@@ -2403,12 +2414,12 @@ class BiaSlidePdf {
     cy += 5;
     const orgId = p.orgId || deck.orgId;
     cy = BiaSlidePdf.drawKv(doc, 'Customer Org ID', orgId, x + 3, cy, w - 6, BiaSlidePdf.orgUrl(orgId));
-    cy = BiaSlidePdf.drawKv(doc, 'Licenses (prov/ent)', p.entitled, x + 3, cy, w - 6);
+    cy = BiaSlidePdf.drawKv(doc, 'Licenses (provisioned/entitled)', p.entitled, x + 3, cy, w - 6);
     const provRows = BiaSlidePdf.callingLicenseRows(p, deck);
     if (provRows.length) {
       doc.setFontSize(7);
       BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
-      doc.text('Provisioned licenses', x + 3, cy);
+      doc.text('Licenses (used/entitled)', x + 3, cy);
       cy += 3.5;
       provRows.forEach(([key, val]) => {
         const label = LicenseProductParser.DISPLAY_LABELS[key] || key;
@@ -2842,7 +2853,7 @@ class BiaSlideEditor {
     if (col === GYR_COL || col === LEGACY_GYR_COL) {
       return BiaSanitizer.normalizeGyrColumnValue(text);
     }
-    if (col === 'TCV $') {
+    if (BiaSanitizer.isMoneyColumn(col)) {
       const stored = el.getAttribute('data-raw-value');
       if (stored != null && stored !== '') {
         const displayed = BiaSanitizer.formatMoneyDisplay(stored);
@@ -2870,7 +2881,7 @@ class BiaSlideEditor {
     if (col === GYR_COL || col === LEGACY_GYR_COL) {
       return BiaSanitizer.normalizeGyrColumnValue(val);
     }
-    if (col === 'TCV $') {
+    if (BiaSanitizer.isMoneyColumn(col)) {
       return BiaSanitizer.normalizeMoneyColumnValue(val);
     }
     if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(val);
@@ -3614,6 +3625,13 @@ const CheckBackDashboard = (function () {
     if (['TCV $', 'AAR $'].includes(col)) {
       const n = numVal(val);
       return fmt(n);
+    }
+    if (
+      (col === 'Trend active users 90d' || col === 'Trend call volume 90d') &&
+      typeof BiaSanitizer !== 'undefined' &&
+      BiaSanitizer.formatTrendDisplay
+    ) {
+      return BiaSanitizer.formatTrendDisplay(val) || val;
     }
     return val;
   }
@@ -5651,8 +5669,19 @@ const AccountInsight = (function () {
     const posEl = document.getElementById('accountInsightNavPos');
     const n = list.length;
     const i = _ctx.listIndex;
-    if (prevBtn) prevBtn.disabled = i <= 0;
-    if (nextBtn) nextBtn.disabled = i < 0 || i >= n - 1;
+    const editing = Boolean(_ctx.editMode);
+    if (prevBtn) {
+      prevBtn.disabled = editing || i <= 0;
+      prevBtn.title = editing
+        ? 'Finish editing before changing customers'
+        : 'Previous customer (←)';
+    }
+    if (nextBtn) {
+      nextBtn.disabled = editing || i < 0 || i >= n - 1;
+      nextBtn.title = editing
+        ? 'Finish editing before changing customers'
+        : 'Next customer (→)';
+    }
     if (posEl) {
       posEl.textContent = n > 0 && i >= 0 ? `${i + 1} / ${n}` : '';
     }
@@ -5710,6 +5739,7 @@ const AccountInsight = (function () {
     if (!overlay || !body) return;
     saveCtx(row);
     _ctx.listIndex = typeof listIndex === 'number' ? listIndex : findListIndex(row);
+    _ctx.editMode = false;
     _ctx.dirty = false;
     body.innerHTML = html;
     wireEditListeners(slideRoot());
@@ -5733,6 +5763,7 @@ const AccountInsight = (function () {
     _ctx.editMode = !_ctx.editMode;
     Editor.setEditMode(root, _ctx.editMode);
     updateEditButton();
+    updateNavButtons();
     if (_ctx.editMode) {
       const first = root.querySelector('.bia-editable-value[data-col]');
       if (first) first.focus();
@@ -5832,13 +5863,13 @@ const AccountInsight = (function () {
           ${Html.kv('Subscription', m.sub, 'Sub #')}
           ${Html.kv('Term / dates', m.term, 'Subscription dates')}
           ${Html.kv('TCV', m.tcv, 'TCV $')}
-          ${Html.kv('AAR', m.aar, 'AAR $')}
+          ${Html.kv('Annual Recurring Revenue (ARR)', m.aar, 'AAR $')}
           ${Html.kv('Partner', m.partner, 'Partner')}
         </section>
         <section class="insight-panel insight-panel-orange">
           <h3>Provisioning &amp; Usage Data</h3>
           ${Html.kv('Customer Org ID', m.orgId, 'Customer org id')}
-          ${Html.kv('Licenses (prov/ent)', m.entitled, 'Provisioned/Entitled Lic Calling')}
+          ${Html.kv('Licenses (provisioned/entitled)', m.entitled, 'Provisioned/Entitled Lic Calling')}
           ${Html.kv('Active', m.active, 'Active Lic Calling')}
         </section>
         <section class="insight-panel insight-panel-magenta">
@@ -5863,6 +5894,7 @@ const AccountInsight = (function () {
   }
 
   function navigateTo(delta) {
+    if (_ctx.editMode) return false;
     const list = filteredRows();
     if (!list.length) return false;
     const nextIdx =
@@ -5959,6 +5991,7 @@ const AccountInsight = (function () {
     exportPdf,
     flushPendingEdits,
     isOverlayOpen,
+    isEditMode: () => Boolean(_ctx.editMode),
   };
 })();
 /**

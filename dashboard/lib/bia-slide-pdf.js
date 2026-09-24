@@ -228,7 +228,7 @@ class BiaSlidePdf {
     if (deck.platforms) h += BiaSlidePdf.measureKv(doc, 'Platforms', deck.platforms, w);
     h += BiaSlidePdf.measureKv(doc, 'Term', s.term, w);
     h += BiaSlidePdf.measureKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), w);
-    h += BiaSlidePdf.measureKv(doc, 'Total Recurring Revenue (AAR)', s.aar, w);
+    h += BiaSlidePdf.measureKv(doc, 'Annual Recurring Revenue (ARR)', BiaSlidePdf.formatMoneyValue(s.aar), w);
     h += BiaSlidePdf.measureKv(doc, 'Collab AE/SE', s.collabAe, w);
     h += BiaSlidePdf.measureKv(doc, 'Segment', s.segment, w);
     h += BiaSlidePdf.measureKv(doc, 'Partner', s.partner, w);
@@ -242,7 +242,7 @@ class BiaSlidePdf {
     let h = 11;
     const orgId = p.orgId || deck.orgId;
     h += BiaSlidePdf.measureKv(doc, 'Customer Org ID', orgId, w);
-    h += BiaSlidePdf.measureKv(doc, 'Licenses (prov/ent)', p.entitled, w);
+    h += BiaSlidePdf.measureKv(doc, 'Licenses (provisioned/entitled)', p.entitled, w);
     const provRows = BiaSlidePdf.callingLicenseRows(p, deck);
     if (provRows.length) {
       h += 3.5;
@@ -453,7 +453,7 @@ class BiaSlidePdf {
     if (deck.platforms) cy = BiaSlidePdf.drawKv(doc, 'Platforms', deck.platforms, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Term', s.term, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Total Contract Value', BiaSlidePdf.formatMoneyValue(s.tcv), x + 3, cy, w - 6);
-    cy = BiaSlidePdf.drawKv(doc, 'Total Recurring Revenue (AAR)', s.aar, x + 3, cy, w - 6);
+    cy = BiaSlidePdf.drawKv(doc, 'Annual Recurring Revenue (ARR)', BiaSlidePdf.formatMoneyValue(s.aar), x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Collab AE/SE', s.collabAe, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Segment', s.segment, x + 3, cy, w - 6);
     cy = BiaSlidePdf.drawKv(doc, 'Partner', s.partner, x + 3, cy, w - 6);
@@ -473,12 +473,12 @@ class BiaSlidePdf {
     cy += 5;
     const orgId = p.orgId || deck.orgId;
     cy = BiaSlidePdf.drawKv(doc, 'Customer Org ID', orgId, x + 3, cy, w - 6, BiaSlidePdf.orgUrl(orgId));
-    cy = BiaSlidePdf.drawKv(doc, 'Licenses (prov/ent)', p.entitled, x + 3, cy, w - 6);
+    cy = BiaSlidePdf.drawKv(doc, 'Licenses (provisioned/entitled)', p.entitled, x + 3, cy, w - 6);
     const provRows = BiaSlidePdf.callingLicenseRows(p, deck);
     if (provRows.length) {
       doc.setFontSize(7);
       BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.muted);
-      doc.text('Provisioned licenses', x + 3, cy);
+      doc.text('Licenses (used/entitled)', x + 3, cy);
       cy += 3.5;
       provRows.forEach(([key, val]) => {
         const label = LicenseProductParser.DISPLAY_LABELS[key] || key;
