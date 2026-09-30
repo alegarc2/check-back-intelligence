@@ -57,6 +57,7 @@ CHECK_BACK_HEADERS = [
     "Auto Attendant count",
     "Hunt Groups count",
     "Call Queues count",
+    "Customer Assist Queues count",
     "Connected-UC (Y/N)",
     "Virtual Lines count",
     "Data gathered by",

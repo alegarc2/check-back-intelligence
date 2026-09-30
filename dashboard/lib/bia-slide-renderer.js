@@ -44,7 +44,8 @@ class BiaSlideRenderer {
   static addonCell(name, slot, value) {
     const v = BiaSanitizer.sanitizeField(value || '—');
     const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
-    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
+    const inner = BiaSanitizer.formatNumbersInText(v);
+    return `<td><span${attrs}>${DashboardHtml.esc(inner)}</span></td>`;
   }
 
   static renderProvisionedBlock(p) {
@@ -90,8 +91,9 @@ class BiaSlideRenderer {
 
   static renderFeatureCell(label, value, col) {
     const raw = BiaSanitizer.sanitizeField(value || '—');
-    const attrs = DashboardHtml.editableAttrs(col);
-    return `<div><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${DashboardHtml.esc(raw)}</strong></div>`;
+    const display = BiaSanitizer.formatNumbersInText(raw);
+    const attrs = DashboardHtml.editableAttrs(col, raw);
+    return `<div><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${DashboardHtml.esc(display)}</strong></div>`;
   }
 
   static notesFromDeck(deck) {
@@ -259,6 +261,7 @@ class BiaSlideRenderer {
             ${BiaSlideRenderer.renderFeatureCell('Auto Attendant', f.autoAttendant, 'Auto Attendant count')}
             ${BiaSlideRenderer.renderFeatureCell('Hunt Groups', f.huntGroups, 'Hunt Groups count')}
             ${BiaSlideRenderer.renderFeatureCell('Basic Call Queues', f.callQueues, 'Call Queues count')}
+            ${BiaSlideRenderer.renderFeatureCell('Customer Assist Queues', f.customerAssistQueues, 'Customer Assist Queues count')}
             ${BiaSlideRenderer.renderFeatureCell('Connected-UC', f.connectedUc, 'Connected-UC (Y/N)')}
             ${BiaSlideRenderer.renderFeatureCell('Virtual Lines', f.virtualLines, 'Virtual Lines count')}
           </div>

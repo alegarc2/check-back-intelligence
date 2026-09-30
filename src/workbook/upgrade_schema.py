@@ -34,6 +34,7 @@ NEW_COLUMNS: list[tuple[str, str]] = [
     ("Auto Attendant count", "Feature Use & Add-ons"),
     ("Hunt Groups count", "Feature Use & Add-ons"),
     ("Call Queues count", "Feature Use & Add-ons"),
+    ("Customer Assist Queues count", "Feature Use & Add-ons"),
     ("Connected-UC (Y/N)", "Feature Use & Add-ons"),
     ("Virtual Lines count", "Feature Use & Add-ons"),
     ("Recommended Actions", "Recommended Actions"),

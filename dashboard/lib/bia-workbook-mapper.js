@@ -146,6 +146,7 @@ class BiaWorkbookMapper {
         autoAttendant: enriched['Auto Attendant count'] || '—',
         huntGroups: enriched['Hunt Groups count'] || '—',
         callQueues: enriched['Call Queues count'] || '—',
+        customerAssistQueues: enriched['Customer Assist Queues count'] || '—',
         connectedUc: enriched['Connected-UC (Y/N)'] || '—',
         virtualLines: enriched['Virtual Lines count'] || '—',
       },
@@ -211,6 +212,7 @@ class BiaWorkbookMapper {
     set('Auto Attendant count', f.autoAttendant);
     set('Hunt Groups count', f.huntGroups);
     set('Call Queues count', f.callQueues);
+    set('Customer Assist Queues count', f.customerAssistQueues);
     set('Connected-UC (Y/N)', f.connectedUc);
     set('Virtual Lines count', f.virtualLines);
     const actPct = String(p.activeUsers || '').match(/(\d+)%/);

@@ -73,6 +73,7 @@ def _ensure_columns(ws, col_index: dict[str, int]) -> dict[str, int]:
         "Auto Attendant count": "Feature Use & Add-ons",
         "Hunt Groups count": "Feature Use & Add-ons",
         "Call Queues count": "Feature Use & Add-ons",
+        "Customer Assist Queues count": "Feature Use & Add-ons",
         "Connected-UC (Y/N)": "Feature Use & Add-ons",
         "Virtual Lines count": "Feature Use & Add-ons",
         "Data gathered by": "Business Insight",

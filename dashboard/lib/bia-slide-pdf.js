@@ -161,8 +161,9 @@ class BiaSlidePdf {
 
   static drawLinkText(doc, text, url, valueLeft, y, valueW) {
     const label = BiaSlidePdf.cleanText(text) || '—';
+    const shown = url ? label : BiaSanitizer.formatNumbersInText(label);
     const rightX = valueLeft + valueW;
-    const lines = doc.splitTextToSize(label.substring(0, 120), valueW);
+    const lines = doc.splitTextToSize(String(shown).substring(0, 120), valueW);
     if (!url) {
       BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.text);
       lines.forEach((line, i) => {
@@ -197,7 +198,10 @@ class BiaSlidePdf {
     const valueW = w - labelW - 1;
     doc.setFontSize(8);
     const labelLines = doc.splitTextToSize(BiaSlidePdf.cleanText(label), labelW);
-    const valueLines = doc.splitTextToSize(BiaSlidePdf.cleanText(value || '—'), valueW);
+    const valueLines = doc.splitTextToSize(
+      BiaSanitizer.formatNumbersInText(BiaSlidePdf.cleanText(value || '—')),
+      valueW
+    );
     return Math.max(labelLines.length * 3.6, valueLines.length * 3.6) + 1.2;
   }
 
@@ -264,6 +268,7 @@ class BiaSlidePdf {
       ['Auto Attendant', f.autoAttendant],
       ['Hunt Groups', f.huntGroups],
       ['Basic Call Queues', f.callQueues],
+      ['Customer Assist Queues', f.customerAssistQueues],
       ['Connected-UC', f.connectedUc],
       ['Virtual Lines', f.virtualLines],
     ];
@@ -377,7 +382,7 @@ class BiaSlidePdf {
           used: plain[1],
           total: plain[2],
           pct,
-          display: `${plain[1]}/${plain[2]} (${pct}%)`,
+          display: `${LicenseProductParser.fmtCount(u)}/${LicenseProductParser.fmtCount(t)} (${pct}%)`,
         };
       }
       return null;
@@ -389,7 +394,7 @@ class BiaSlidePdf {
       used: m[1],
       total: m[2],
       pct,
-      display: `${m[1]}/${m[2]} (${pct}%)`,
+      display: `${LicenseProductParser.fmtCount(u)}/${LicenseProductParser.fmtCount(t)} (${pct}%)`,
     };
   }
 
@@ -509,6 +514,7 @@ class BiaSlidePdf {
       ['Auto Attendant', f.autoAttendant],
       ['Hunt Groups', f.huntGroups],
       ['Basic Call Queues', f.callQueues],
+      ['Customer Assist Queues', f.customerAssistQueues],
       ['Connected-UC', f.connectedUc],
       ['Virtual Lines', f.virtualLines],
     ];
@@ -526,7 +532,12 @@ class BiaSlidePdf {
       const p = a.P ?? a.p ?? '—';
       const t = a.T ?? a.t ?? '—';
       const u = a.U ?? a.u ?? '—';
-      return [name, String(p), String(t), String(u)];
+      return [
+        name,
+        BiaSanitizer.formatNumbersInText(String(p)),
+        BiaSanitizer.formatNumbersInText(String(t)),
+        BiaSanitizer.formatNumbersInText(String(u)),
+      ];
     });
     if (typeof doc.autoTable !== 'function') return y;
     doc.autoTable({

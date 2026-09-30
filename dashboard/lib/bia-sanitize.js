@@ -68,6 +68,56 @@ class BiaSanitizer {
     return col === 'TCV $' || col === 'AAR $';
   }
 
+  static skipGroupedNumberColumn(col) {
+    return (
+      !col ||
+      BiaSanitizer.isMoneyColumn(col) ||
+      col === 'Sub #' ||
+      col === 'Customer org id' ||
+      col === 'Salesforce URL' ||
+      col === 'Success Portal' ||
+      col === 'Account Name' ||
+      col === 'Opportunity Name' ||
+      col === 'Opportunity (linked)' ||
+      col === 'CSM Engagement Model (linked)' ||
+      col === 'Subscription dates' ||
+      col === 'Sub Term' ||
+      col === 'Sub start date (MM/DD/YYYY)' ||
+      col === 'Closed on (MM/YY)' ||
+      col === 'Data gathered date' ||
+      col === 'Data gathered by' ||
+      col === 'Connected-UC (Y/N)' ||
+      col === '(G/Y/R)' ||
+      col === ' (G/Y/R)'
+    );
+  }
+
+  /** Insert thousands separators for display (1200 → 1,200). Skips IDs, URLs, years. */
+  static formatNumbersInText(raw) {
+    const s = String(raw ?? '');
+    if (!s || s === '—' || s === '-') return s;
+    const trimmed = s.trim();
+    if (/^https?:\/\//i.test(trimmed)) return s;
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(trimmed)) {
+      return s;
+    }
+    return s.replace(/[A-Za-z]\d[\d,]*|\d[\d,]*(?:\.\d+)?/g, (chunk) => {
+      if (/^[A-Za-z]/.test(chunk)) return chunk;
+      const n = parseFloat(chunk.replace(/,/g, ''));
+      if (Number.isNaN(n)) return chunk;
+      if (/^\d{4}$/.test(chunk) && n >= 1900 && n <= 2100) return chunk;
+      const frac = chunk.includes('.') ? chunk.split('.')[1].replace(/,/g, '').length : 0;
+      return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: frac,
+        maximumFractionDigits: frac,
+      }).format(n);
+    });
+  }
+
+  static formatCountDisplay(raw) {
+    return BiaSanitizer.formatNumbersInText(raw);
+  }
+
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
   static normalizeMoneyColumnValue(raw) {
     const n = BiaSanitizer.parseMoneyNumber(raw);

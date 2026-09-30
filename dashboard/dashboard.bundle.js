@@ -100,6 +100,7 @@ CheckBack.Dashboard.Constants = {
     'Auto Attendant count',
     'Hunt Groups count',
     'Call Queues count',
+    'Customer Assist Queues count',
     'Connected-UC (Y/N)',
     'Virtual Lines count',
     'Data gathered by',
@@ -134,6 +135,7 @@ CheckBack.Dashboard.Constants = {
     'Auto Attendant count',
     'Hunt Groups count',
     'Call Queues count',
+    'Customer Assist Queues count',
     'Connected-UC (Y/N)',
     'Virtual Lines count',
     'Active % of provisioned',
@@ -232,6 +234,56 @@ class BiaSanitizer {
 
   static isMoneyColumn(col) {
     return col === 'TCV $' || col === 'AAR $';
+  }
+
+  static skipGroupedNumberColumn(col) {
+    return (
+      !col ||
+      BiaSanitizer.isMoneyColumn(col) ||
+      col === 'Sub #' ||
+      col === 'Customer org id' ||
+      col === 'Salesforce URL' ||
+      col === 'Success Portal' ||
+      col === 'Account Name' ||
+      col === 'Opportunity Name' ||
+      col === 'Opportunity (linked)' ||
+      col === 'CSM Engagement Model (linked)' ||
+      col === 'Subscription dates' ||
+      col === 'Sub Term' ||
+      col === 'Sub start date (MM/DD/YYYY)' ||
+      col === 'Closed on (MM/YY)' ||
+      col === 'Data gathered date' ||
+      col === 'Data gathered by' ||
+      col === 'Connected-UC (Y/N)' ||
+      col === '(G/Y/R)' ||
+      col === ' (G/Y/R)'
+    );
+  }
+
+  /** Insert thousands separators for display (1200 → 1,200). Skips IDs, URLs, years. */
+  static formatNumbersInText(raw) {
+    const s = String(raw ?? '');
+    if (!s || s === '—' || s === '-') return s;
+    const trimmed = s.trim();
+    if (/^https?:\/\//i.test(trimmed)) return s;
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(trimmed)) {
+      return s;
+    }
+    return s.replace(/[A-Za-z]\d[\d,]*|\d[\d,]*(?:\.\d+)?/g, (chunk) => {
+      if (/^[A-Za-z]/.test(chunk)) return chunk;
+      const n = parseFloat(chunk.replace(/,/g, ''));
+      if (Number.isNaN(n)) return chunk;
+      if (/^\d{4}$/.test(chunk) && n >= 1900 && n <= 2100) return chunk;
+      const frac = chunk.includes('.') ? chunk.split('.')[1].replace(/,/g, '').length : 0;
+      return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: frac,
+        maximumFractionDigits: frac,
+      }).format(n);
+    });
+  }
+
+  static formatCountDisplay(raw) {
+    return BiaSanitizer.formatNumbersInText(raw);
   }
 
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
@@ -472,8 +524,15 @@ class DashboardHtml {
   static editableAttrs(col, rawValue) {
     if (!col) return '';
     let extra = '';
-    if (BiaSanitizer.isMoneyColumn(col) && rawValue != null && String(rawValue).trim() !== '') {
-      extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+    if (rawValue != null && String(rawValue).trim() !== '') {
+      if (BiaSanitizer.isMoneyColumn(col)) {
+        extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+      } else if (
+        !BiaSanitizer.skipGroupedNumberColumn(col) &&
+        BiaSanitizer.formatNumbersInText(rawValue) !== String(rawValue).trim()
+      ) {
+        extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+      }
     }
     return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
   }
@@ -490,6 +549,8 @@ class DashboardHtml {
     let inner = DashboardHtml.esc(raw);
     if (options.moneyDisplay || BiaSanitizer.isMoneyColumn(col)) {
       inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
+    } else if (!BiaSanitizer.skipGroupedNumberColumn(col)) {
+      inner = DashboardHtml.esc(BiaSanitizer.formatNumbersInText(raw));
     }
     if (label === 'Customer Org ID' && !col) {
       inner = DashboardHtml.orgLink(raw);
@@ -531,10 +592,12 @@ class DashboardHtml {
     const u = parseFloat(m[1].replace(/,/g, ''));
     const t = parseFloat(m[2].replace(/,/g, ''));
     const pct = t ? Math.min(100, Math.round((u / t) * 100)) : parseInt(m[3], 10) || 0;
-    const attrs = mappedCol ? DashboardHtml.editableAttrs(mappedCol) : '';
+    const used = LicenseProductParser.fmtCount(u);
+    const total = LicenseProductParser.fmtCount(t);
+    const attrs = mappedCol ? DashboardHtml.editableAttrs(mappedCol, `${m[1]}/${m[2]}`) : '';
     return `<div class="insight-lic-row">
       <span class="insight-lic-label">${DashboardHtml.esc(label)}</span>
-      <span class="insight-lic-nums"${attrs}>${DashboardHtml.esc(m[1])}/${DashboardHtml.esc(m[2])} (${pct}%)</span>
+      <span class="insight-lic-nums"${attrs}>${DashboardHtml.esc(used)}/${DashboardHtml.esc(total)} (${pct}%)</span>
       <div class="insight-lic-bar"><div class="insight-lic-fill" style="width:${pct}%"></div></div>
     </div>`;
   }
@@ -770,7 +833,7 @@ class LicenseProductParser {
   }
 
   static fmtCount(n) {
-    return Math.round(Number(n) || 0).toLocaleString();
+    return Math.round(Number(n) || 0).toLocaleString('en-US');
   }
 
   static parsePlWsSingleCell(val) {
@@ -1312,6 +1375,7 @@ class BiaWorkbookMapper {
         autoAttendant: enriched['Auto Attendant count'] || '—',
         huntGroups: enriched['Hunt Groups count'] || '—',
         callQueues: enriched['Call Queues count'] || '—',
+        customerAssistQueues: enriched['Customer Assist Queues count'] || '—',
         connectedUc: enriched['Connected-UC (Y/N)'] || '—',
         virtualLines: enriched['Virtual Lines count'] || '—',
       },
@@ -1377,6 +1441,7 @@ class BiaWorkbookMapper {
     set('Auto Attendant count', f.autoAttendant);
     set('Hunt Groups count', f.huntGroups);
     set('Call Queues count', f.callQueues);
+    set('Customer Assist Queues count', f.customerAssistQueues);
     set('Connected-UC (Y/N)', f.connectedUc);
     set('Virtual Lines count', f.virtualLines);
     const actPct = String(p.activeUsers || '').match(/(\d+)%/);
@@ -1704,7 +1769,8 @@ class BiaSlideRenderer {
   static addonCell(name, slot, value) {
     const v = BiaSanitizer.sanitizeField(value || '—');
     const attrs = ` class="bia-editable-addon" data-addon-name="${DashboardHtml.escAttr(name)}" data-addon-slot="${slot}" contenteditable="false"`;
-    return `<td><span${attrs}>${DashboardHtml.esc(v)}</span></td>`;
+    const inner = BiaSanitizer.formatNumbersInText(v);
+    return `<td><span${attrs}>${DashboardHtml.esc(inner)}</span></td>`;
   }
 
   static renderProvisionedBlock(p) {
@@ -1750,8 +1816,9 @@ class BiaSlideRenderer {
 
   static renderFeatureCell(label, value, col) {
     const raw = BiaSanitizer.sanitizeField(value || '—');
-    const attrs = DashboardHtml.editableAttrs(col);
-    return `<div><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${DashboardHtml.esc(raw)}</strong></div>`;
+    const display = BiaSanitizer.formatNumbersInText(raw);
+    const attrs = DashboardHtml.editableAttrs(col, raw);
+    return `<div><span>${DashboardHtml.esc(label)}</span><strong${attrs}>${DashboardHtml.esc(display)}</strong></div>`;
   }
 
   static notesFromDeck(deck) {
@@ -1919,6 +1986,7 @@ class BiaSlideRenderer {
             ${BiaSlideRenderer.renderFeatureCell('Auto Attendant', f.autoAttendant, 'Auto Attendant count')}
             ${BiaSlideRenderer.renderFeatureCell('Hunt Groups', f.huntGroups, 'Hunt Groups count')}
             ${BiaSlideRenderer.renderFeatureCell('Basic Call Queues', f.callQueues, 'Call Queues count')}
+            ${BiaSlideRenderer.renderFeatureCell('Customer Assist Queues', f.customerAssistQueues, 'Customer Assist Queues count')}
             ${BiaSlideRenderer.renderFeatureCell('Connected-UC', f.connectedUc, 'Connected-UC (Y/N)')}
             ${BiaSlideRenderer.renderFeatureCell('Virtual Lines', f.virtualLines, 'Virtual Lines count')}
           </div>
@@ -2102,8 +2170,9 @@ class BiaSlidePdf {
 
   static drawLinkText(doc, text, url, valueLeft, y, valueW) {
     const label = BiaSlidePdf.cleanText(text) || '—';
+    const shown = url ? label : BiaSanitizer.formatNumbersInText(label);
     const rightX = valueLeft + valueW;
-    const lines = doc.splitTextToSize(label.substring(0, 120), valueW);
+    const lines = doc.splitTextToSize(String(shown).substring(0, 120), valueW);
     if (!url) {
       BiaSlidePdf.setText(doc, BiaSlidePdf.COLORS.text);
       lines.forEach((line, i) => {
@@ -2138,7 +2207,10 @@ class BiaSlidePdf {
     const valueW = w - labelW - 1;
     doc.setFontSize(8);
     const labelLines = doc.splitTextToSize(BiaSlidePdf.cleanText(label), labelW);
-    const valueLines = doc.splitTextToSize(BiaSlidePdf.cleanText(value || '—'), valueW);
+    const valueLines = doc.splitTextToSize(
+      BiaSanitizer.formatNumbersInText(BiaSlidePdf.cleanText(value || '—')),
+      valueW
+    );
     return Math.max(labelLines.length * 3.6, valueLines.length * 3.6) + 1.2;
   }
 
@@ -2205,6 +2277,7 @@ class BiaSlidePdf {
       ['Auto Attendant', f.autoAttendant],
       ['Hunt Groups', f.huntGroups],
       ['Basic Call Queues', f.callQueues],
+      ['Customer Assist Queues', f.customerAssistQueues],
       ['Connected-UC', f.connectedUc],
       ['Virtual Lines', f.virtualLines],
     ];
@@ -2318,7 +2391,7 @@ class BiaSlidePdf {
           used: plain[1],
           total: plain[2],
           pct,
-          display: `${plain[1]}/${plain[2]} (${pct}%)`,
+          display: `${LicenseProductParser.fmtCount(u)}/${LicenseProductParser.fmtCount(t)} (${pct}%)`,
         };
       }
       return null;
@@ -2330,7 +2403,7 @@ class BiaSlidePdf {
       used: m[1],
       total: m[2],
       pct,
-      display: `${m[1]}/${m[2]} (${pct}%)`,
+      display: `${LicenseProductParser.fmtCount(u)}/${LicenseProductParser.fmtCount(t)} (${pct}%)`,
     };
   }
 
@@ -2450,6 +2523,7 @@ class BiaSlidePdf {
       ['Auto Attendant', f.autoAttendant],
       ['Hunt Groups', f.huntGroups],
       ['Basic Call Queues', f.callQueues],
+      ['Customer Assist Queues', f.customerAssistQueues],
       ['Connected-UC', f.connectedUc],
       ['Virtual Lines', f.virtualLines],
     ];
@@ -2467,7 +2541,12 @@ class BiaSlidePdf {
       const p = a.P ?? a.p ?? '—';
       const t = a.T ?? a.t ?? '—';
       const u = a.U ?? a.u ?? '—';
-      return [name, String(p), String(t), String(u)];
+      return [
+        name,
+        BiaSanitizer.formatNumbersInText(String(p)),
+        BiaSanitizer.formatNumbersInText(String(t)),
+        BiaSanitizer.formatNumbersInText(String(u)),
+      ];
     });
     if (typeof doc.autoTable !== 'function') return y;
     doc.autoTable({
@@ -2867,6 +2946,14 @@ class BiaSlideEditor {
         }
       }
       return BiaSanitizer.normalizeMoneyColumnValue(text);
+    }
+    if (!BiaSanitizer.skipGroupedNumberColumn(col)) {
+      const stored = el.getAttribute('data-raw-value');
+      if (stored != null && stored !== '') {
+        const displayed = BiaSanitizer.formatNumbersInText(stored);
+        if (text === displayed || text === stored) return stored;
+      }
+      if (/^-?[\d,]+(?:\.\d+)?$/.test(text)) return text.replace(/,/g, '');
     }
     if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(text);
     if (el.classList.contains('insight-notes-edit') && /^Click to add notes…$/i.test(text)) {
@@ -3632,6 +3719,13 @@ const CheckBackDashboard = (function () {
       BiaSanitizer.formatTrendDisplay
     ) {
       return BiaSanitizer.formatTrendDisplay(val) || val;
+    }
+    if (
+      typeof BiaSanitizer !== 'undefined' &&
+      BiaSanitizer.formatNumbersInText &&
+      !BiaSanitizer.skipGroupedNumberColumn(col)
+    ) {
+      return BiaSanitizer.formatNumbersInText(val);
     }
     return val;
   }
@@ -6036,6 +6130,7 @@ const PanelCache = (function () {
     ['Auto Attendant count', 'Feature Use & Add-ons'],
     ['Hunt Groups count', 'Feature Use & Add-ons'],
     ['Call Queues count', 'Feature Use & Add-ons'],
+    ['Customer Assist Queues count', 'Feature Use & Add-ons'],
     ['Connected-UC (Y/N)', 'Feature Use & Add-ons'],
     ['Virtual Lines count', 'Feature Use & Add-ons'],
   ];

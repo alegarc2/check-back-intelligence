@@ -82,7 +82,7 @@ class LicenseProductParser {
   }
 
   static fmtCount(n) {
-    return Math.round(Number(n) || 0).toLocaleString();
+    return Math.round(Number(n) || 0).toLocaleString('en-US');
   }
 
   static parsePlWsSingleCell(val) {

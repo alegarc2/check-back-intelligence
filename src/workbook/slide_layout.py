@@ -38,6 +38,7 @@ FEATURE_FIELDS = (
     "Auto Attendant count",
     "Hunt Groups count",
     "Call Queues count",
+    "Customer Assist Queues count",
     "Connected-UC (Y/N)",
     "Virtual Lines count",
 )

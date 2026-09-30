@@ -96,8 +96,15 @@ class DashboardHtml {
   static editableAttrs(col, rawValue) {
     if (!col) return '';
     let extra = '';
-    if (BiaSanitizer.isMoneyColumn(col) && rawValue != null && String(rawValue).trim() !== '') {
-      extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+    if (rawValue != null && String(rawValue).trim() !== '') {
+      if (BiaSanitizer.isMoneyColumn(col)) {
+        extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+      } else if (
+        !BiaSanitizer.skipGroupedNumberColumn(col) &&
+        BiaSanitizer.formatNumbersInText(rawValue) !== String(rawValue).trim()
+      ) {
+        extra = ` data-raw-value="${DashboardHtml.escAttr(String(rawValue))}"`;
+      }
     }
     return ` class="bia-editable-value" data-col="${DashboardHtml.escAttr(col)}"${extra} contenteditable="false"`;
   }
@@ -114,6 +121,8 @@ class DashboardHtml {
     let inner = DashboardHtml.esc(raw);
     if (options.moneyDisplay || BiaSanitizer.isMoneyColumn(col)) {
       inner = DashboardHtml.esc(BiaSanitizer.formatMoneyDisplay(raw));
+    } else if (!BiaSanitizer.skipGroupedNumberColumn(col)) {
+      inner = DashboardHtml.esc(BiaSanitizer.formatNumbersInText(raw));
     }
     if (label === 'Customer Org ID' && !col) {
       inner = DashboardHtml.orgLink(raw);
@@ -155,10 +164,12 @@ class DashboardHtml {
     const u = parseFloat(m[1].replace(/,/g, ''));
     const t = parseFloat(m[2].replace(/,/g, ''));
     const pct = t ? Math.min(100, Math.round((u / t) * 100)) : parseInt(m[3], 10) || 0;
-    const attrs = mappedCol ? DashboardHtml.editableAttrs(mappedCol) : '';
+    const used = LicenseProductParser.fmtCount(u);
+    const total = LicenseProductParser.fmtCount(t);
+    const attrs = mappedCol ? DashboardHtml.editableAttrs(mappedCol, `${m[1]}/${m[2]}`) : '';
     return `<div class="insight-lic-row">
       <span class="insight-lic-label">${DashboardHtml.esc(label)}</span>
-      <span class="insight-lic-nums"${attrs}>${DashboardHtml.esc(m[1])}/${DashboardHtml.esc(m[2])} (${pct}%)</span>
+      <span class="insight-lic-nums"${attrs}>${DashboardHtml.esc(used)}/${DashboardHtml.esc(total)} (${pct}%)</span>
       <div class="insight-lic-bar"><div class="insight-lic-fill" style="width:${pct}%"></div></div>
     </div>`;
   }

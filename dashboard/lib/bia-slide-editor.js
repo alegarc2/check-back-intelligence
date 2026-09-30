@@ -155,6 +155,14 @@ class BiaSlideEditor {
       }
       return BiaSanitizer.normalizeMoneyColumnValue(text);
     }
+    if (!BiaSanitizer.skipGroupedNumberColumn(col)) {
+      const stored = el.getAttribute('data-raw-value');
+      if (stored != null && stored !== '') {
+        const displayed = BiaSanitizer.formatNumbersInText(stored);
+        if (text === displayed || text === stored) return stored;
+      }
+      if (/^-?[\d,]+(?:\.\d+)?$/.test(text)) return text.replace(/,/g, '');
+    }
     if (col === 'Sub #') return DashboardHtml.normalizeSubColumnValue(text);
     if (el.classList.contains('insight-notes-edit') && /^Click to add notes…$/i.test(text)) {
       return '';

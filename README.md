@@ -134,7 +134,7 @@ cd dashboard
 
 ### Workbook template
 
-Canonical file: `samples/check_back_template_v1.xlsx` (50 columns, single header row). `samples/check_back_template.xlsx` is a copy for older paths.
+Canonical file: `samples/check_back_template_v1.xlsx` (51 columns, single header row). `samples/check_back_template.xlsx` is a copy for older paths.
 
 Column A is **Account Name** (company). Column B is **Opportunity Name** (Salesforce opportunity — still the customer key for matching, search, and slides). Fill both when they differ.
 
@@ -264,7 +264,7 @@ check-back-intelligence/
 ├── src/                    # Python CLI pipeline
 ├── dashboard/              # static HTML/JS dashboard
 ├── webex_bot/              # Webex bot + tunnels
-├── samples/                # v1 template (50 cols), install-base demo, BIA slide PDF
+├── samples/                # v1 template (51 cols), install-base demo, BIA slide PDF
 ├── config/                 # field mapping YAML
 ├── tests/
 └── output/                 # your workbooks (gitignored — no customer data in repo)

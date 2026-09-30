@@ -484,6 +484,13 @@ const CheckBackDashboard = (function () {
     ) {
       return BiaSanitizer.formatTrendDisplay(val) || val;
     }
+    if (
+      typeof BiaSanitizer !== 'undefined' &&
+      BiaSanitizer.formatNumbersInText &&
+      !BiaSanitizer.skipGroupedNumberColumn(col)
+    ) {
+      return BiaSanitizer.formatNumbersInText(val);
+    }
     return val;
   }
 

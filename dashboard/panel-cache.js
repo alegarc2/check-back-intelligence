@@ -40,6 +40,7 @@ const PanelCache = (function () {
     ['Auto Attendant count', 'Feature Use & Add-ons'],
     ['Hunt Groups count', 'Feature Use & Add-ons'],
     ['Call Queues count', 'Feature Use & Add-ons'],
+    ['Customer Assist Queues count', 'Feature Use & Add-ons'],
     ['Connected-UC (Y/N)', 'Feature Use & Add-ons'],
     ['Virtual Lines count', 'Feature Use & Add-ons'],
   ];
