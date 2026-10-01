@@ -26,7 +26,7 @@ CORE_SLIDE_FIELDS = (
     "Sub start date (MM/DD/YYYY)",
     "Collab AE/SE",
     "CSM Engagement Model (linked)",
-    "(G/Y/R)",
+    "(G/Y/R/U)",
 )
 
 STRUCTURED_SLIDE_FIELDS = (
@@ -48,7 +48,7 @@ VERIFIED_SLIDE_BY_ORG: dict[str, dict[str, Any]] = {
         "Sub start date (MM/DD/YYYY)": "5/22/2025",
         "Collab AE/SE": "Peter Caterinicchia",
         "CSM Engagement Model (linked)": "Scale",
-        "(G/Y/R)": "G",
+        "(G/Y/R/U)": "G",
         "Trend active users 90d": "UP +2.6% last 90 days",
         "Trend call volume 90d": "UP +52% last 90 days",
         "Lic Professional (used/entitled)": "4376/5193",

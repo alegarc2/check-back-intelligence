@@ -36,8 +36,11 @@ columns:
   "Sub start date (MM/DD/YYYY)":
     action: sub_term_years
 
+  "(G/Y/R/U)":
+    action: gyr_letter  # G Good, Y Risk, R Critical, U Upsell
+
   "(G/Y/R)":
-    action: gyr_letter
+    action: gyr_letter  # legacy header
 
   " (G/Y/R)":
     action: gyr_letter

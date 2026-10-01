@@ -1,6 +1,6 @@
 # Check Back Customer Adoption Intelligence
 
-Track whether Webex customers are **using what they pay for** — provisioned vs entitled licenses, adoption health (G/Y/R), and per-account business insight slides.
+Track whether Webex customers are **using what they pay for** — provisioned vs entitled licenses, adoption health (G/Y/R/U), and per-account business insight slides.
 
 ```text
 PDFs + screenshots  →  populate CLI  →  Check Back .xlsx  →  dashboard
@@ -151,7 +151,7 @@ Column A is **Account Name** (company). Column B is **Opportunity Name** (Salesf
 
 | Upload contains | Mode |
 |-----------------|------|
-| `Provisioned/Entitled Lic Calling`, `(G/Y/R)` | **Check Back** — Adoption Health |
+| `Provisioned/Entitled Lic Calling`, `(G/Y/R/U)` | **Check Back** — Adoption Health |
 | `Collab AOV`, `Renewal Fiscal Qtr` | **Renewal** — full renewal analytics |
 | Other | Generic table + KPIs |
 

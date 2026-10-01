@@ -17,7 +17,7 @@ MINIMAL_CONFIG = {
         "Account Name": "Account Name",
         "Opportunity Name": "Opportunity Name",
         "Partner Name": "Partner",
-        "Risk2_0_current": "(G/Y/R)",
+        "Risk2_0_current": "(G/Y/R/U)",
         "Webex Calling MT Provisioned Seats": "Provisioned/Entitled Lic Calling",
         "Cloud Calling Billed Seats": "Provisioned/Entitled Lic Calling",
     },
@@ -41,13 +41,13 @@ def test_map_row_basic():
     row, gaps = map_row(ib)
     assert row["Account Name"] == "Test Corp"
     assert row["Partner"] == "Partner X"
-    assert row["(G/Y/R)"] == "G"
+    assert row["(G/Y/R/U)"] == "G"
 
 
 def test_risk_high_maps_red():
     ib = {"Account Name": "A", "Risk2_0_current": "High"}
     row, _ = map_row(ib)
-    assert row["(G/Y/R)"] == "R"
+    assert row["(G/Y/R/U)"] == "R"
 
 
 def test_first_number():
@@ -92,7 +92,7 @@ def test_map_row_entitled_fallback_total_billed():
 def test_map_row_risk_medium():
     ib = {"Risk2_0_current": "Medium"}
     row, _ = map_row(ib, MINIMAL_CONFIG)
-    assert row["(G/Y/R)"] == "Y"
+    assert row["(G/Y/R/U)"] == "Y"
 
 
 def test_map_row_review_flag_gap():

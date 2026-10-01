@@ -4,6 +4,7 @@
 const SchemaDashboard = (function () {
   const CHECKBACK_MARKERS = [
     'Provisioned/Entitled Lic Calling',
+    '(G/Y/R/U)',
     '(G/Y/R)',
     'Entitled Lic Calling',
     'Providioned Lic Calling',
@@ -71,6 +72,9 @@ const SchemaDashboard = (function () {
       const oid = out['Customer org id'];
       if (oid != null && String(oid).trim() !== '') {
         out['Customer org id'] = String(oid).trim();
+      }
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.aliasGyrOnRow) {
+        BiaSanitizer.aliasGyrOnRow(out);
       }
       return out;
     });

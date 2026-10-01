@@ -37,7 +37,7 @@ CHECK_BACK_HEADERS = [
     "Notes from Calling Analytics",
     "Notes from provisioned features",
     "CCEP trial (Y/N)",
-    "(G/Y/R)",
+    "(G/Y/R/U)",
     "TAC/BEMS",
     "AAR $",
     "Collab AE/SE",
@@ -67,8 +67,10 @@ CHECK_BACK_HEADERS = [
     "Recommended Actions",
 ]
 
-GYR_COL = "(G/Y/R)"
-LEGACY_GYR_COL = " (G/Y/R)"
+GYR_COL = "(G/Y/R/U)"
+LEGACY_GYR_COL = "(G/Y/R)"
+LEGACY_GYR_COL_SPACED = " (G/Y/R)"
+GYR_COLUMNS = (GYR_COL, LEGACY_GYR_COL, LEGACY_GYR_COL_SPACED)
 PROV_ENT_LICENSE_COL = "Provisioned/Entitled Lic Calling"
 
 

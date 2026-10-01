@@ -2,8 +2,9 @@
  * Shared column names and dashboard constants.
  */
 CheckBack.Dashboard.Constants = {
-  GYR_COL: '(G/Y/R)',
-  LEGACY_GYR_COL: ' (G/Y/R)',
+  GYR_COL: '(G/Y/R/U)',
+  LEGACY_GYR_COL: '(G/Y/R)',
+  LEGACY_GYR_COL_SPACED: ' (G/Y/R)',
   /** Merged license column (provisioned/entitled pairs). Legacy split cols still supported in parsers. */
   LICENSE_COL: 'Provisioned/Entitled Lic Calling',
   LEGACY_ENTITLED_COL: 'Entitled Lic Calling',
@@ -38,7 +39,7 @@ CheckBack.Dashboard.Constants = {
   PORTFOLIO_COLUMN_PREFER: [
     'Account Name',
     'Opportunity Name',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'Customer org id',
     'TCV $',
     'AAR $',
@@ -74,7 +75,7 @@ CheckBack.Dashboard.Constants = {
     'Notes from Calling Analytics',
     'Notes from provisioned features',
     'CCEP trial (Y/N)',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'TAC/BEMS',
     'AAR $',
     'Collab AE/SE',
@@ -107,7 +108,7 @@ CheckBack.Dashboard.Constants = {
     'Account Name',
     'Opportunity Name',
     'Customer org id',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'TCV $',
     'AAR $',
     'Sub #',

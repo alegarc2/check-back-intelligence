@@ -15,7 +15,8 @@ class BiaSlidePdf {
     notes: [59, 130, 246],
     health: {
       good: [0, 212, 160],
-      risk: [239, 68, 68],
+      risk: [251, 191, 36],
+      critical: [239, 68, 68],
       upsell: [124, 58, 237],
       unknown: [30, 41, 59],
     },
@@ -107,16 +108,17 @@ class BiaSlidePdf {
       doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, yText + 5);
     }
 
-    const badgeW = 30;
+    const badgeW = h.label.length > 6 ? 42 : 30;
     const badgeH = 22;
     const badgeX = pageW - 12 - badgeW;
     const badgeY = 6;
     const healthRgb = BiaSlidePdf.COLORS.health[h.class] || BiaSlidePdf.COLORS.health.unknown;
     BiaSlidePdf.setFill(doc, healthRgb);
     doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 3, 3, 'F');
-    doc.setFontSize(11);
+    doc.setFontSize(h.label.length > 6 ? 9 : 11);
     doc.setFont(undefined, 'bold');
-    BiaSlidePdf.setText(doc, h.class === 'good' ? [4, 47, 46] : [255, 255, 255]);
+    const darkText = h.class === 'good' || h.class === 'risk';
+    BiaSlidePdf.setText(doc, darkText ? [4, 47, 46] : [255, 255, 255]);
     doc.text(h.label.substring(0, 10), badgeX + badgeW / 2, badgeY + 13, { align: 'center' });
     doc.setFont(undefined, 'normal');
 

@@ -8,7 +8,7 @@ The dashboard loads a **concat bundle** (`dashboard.bundle.js`) — no npm build
 |--------|----------------|
 | `lib/namespace.js` | `CheckBack.Dashboard` root |
 | `lib/constants.js` | Column names, link order, canonical field sets |
-| `lib/bia-sanitize.js` | `BiaSanitizer` — field cleanup, health G/Y/R, timelines |
+| `lib/bia-sanitize.js` | `BiaSanitizer` — field cleanup, health G/Y/R/U, timelines |
 | `lib/html-utils.js` | `DashboardHtml` — escape, kv rows, license bars, org links |
 | `lib/note-parser.js` | `NoteParser` — extract PL/WS provisioning from notes columns |
 | `lib/license-products.js` | `LicenseProductParser` — PL/WS/WxMS/WxM/WxCC used/entitled pairs |

@@ -10,6 +10,7 @@ const DashboardExport = (function () {
     'Locations main number',
     'Control Hub Helpdesk',
     ' (G/Y/R)',
+    '(G/Y/R)',
     'Final Determination',
     'CSM / Account Team notes',
     'Trial',
@@ -44,11 +45,10 @@ const DashboardExport = (function () {
   }
 
   function exportCellValue(row, col) {
-    if (col === '(G/Y/R)') {
-      const current = row['(G/Y/R)'];
+    if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.isGyrColumn && BiaSanitizer.isGyrColumn(col)) {
       const raw =
-        current != null && String(current).trim() !== '' ? current : row[' (G/Y/R)'];
-      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeGyrColumnValue) {
+        typeof BiaSanitizer.rowGyrRaw === 'function' ? BiaSanitizer.rowGyrRaw(row) : row[col];
+      if (typeof BiaSanitizer.normalizeGyrColumnValue === 'function') {
         return cellValue(BiaSanitizer.normalizeGyrColumnValue(raw));
       }
       return cellValue(raw);

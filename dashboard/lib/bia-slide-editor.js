@@ -135,9 +135,7 @@ class BiaSlideEditor {
       if (href && href.startsWith('http')) return href.trim();
     }
     const text = el.innerText.replace(/\u00a0/g, ' ').trim();
-    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
-    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+    if (BiaSanitizer.isGyrColumn(col)) {
       return BiaSanitizer.normalizeGyrColumnValue(text);
     }
     if (BiaSanitizer.isMoneyColumn(col)) {
@@ -171,9 +169,7 @@ class BiaSlideEditor {
   }
 
   static normalizeSavedColumnValue(col, val) {
-    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
-    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+    if (BiaSanitizer.isGyrColumn(col)) {
       return BiaSanitizer.normalizeGyrColumnValue(val);
     }
     if (BiaSanitizer.isMoneyColumn(col)) {

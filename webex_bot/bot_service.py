@@ -15,8 +15,9 @@ from .bot_tunnel import build_dashboard_link, dashboard_base_url
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE_XLSX = ROOT / "output" / "Check_Back_standardized.xlsx"
 SYNC_SCRIPT = ROOT / "dashboard" / "sync-default-workbook.sh"
-GYR_COL = "(G/Y/R)"
-LEGACY_GYR_COL = " (G/Y/R)"
+GYR_COL = "(G/Y/R/U)"
+LEGACY_GYR_COL = "(G/Y/R)"
+LEGACY_GYR_COL_SPACED = " (G/Y/R)"
 LICENSE_COL = "Provisioned/Entitled Lic Calling"
 PAIR_RE = re.compile(
     r"\b(?:PL|WS|Professional|Workspace)\s*:?\s*(\d[\d,]*)\s*/\s*(\d[\d,]*)",
@@ -96,13 +97,13 @@ def load_portfolio_stats(path: Path | None = None) -> dict:
     cols = _headers(ws, header_row)
 
     name_col = cols.get("Opportunity Name", 1)
-    gyr_col = cols.get(GYR_COL) or cols.get(LEGACY_GYR_COL)
+    gyr_col = cols.get(GYR_COL) or cols.get(LEGACY_GYR_COL) or cols.get(LEGACY_GYR_COL_SPACED)
     lic_col = cols.get(LICENSE_COL)
     act_col = cols.get("Active Lic Calling")
     tcv_col = cols.get("TCV $")
 
     rows: list[dict] = []
-    gyr_counts: dict[str, int] = {"G": 0, "Y": 0, "R": 0}
+    gyr_counts: dict[str, int] = {"G": 0, "Y": 0, "R": 0, "U": 0}
     total_ent = total_prov = total_act = 0.0
 
     for r in range(header_row + 1, ws.max_row + 1):
@@ -161,7 +162,7 @@ def format_summary_markdown(stats: dict, *, dashboard_url: str) -> str:
         "|--------|-------|",
         f"| Provisioned / Entitled | {stats['prov_ent_pct']}% ({stats['total_provisioned']:,} / {stats['total_entitled']:,}) |",
         f"| Active / Provisioned | {stats['act_prov_pct']}% ({stats['total_active']:,} / {stats['total_provisioned']:,}) |",
-        f"| G / Y / R | {g.get('G', 0)} / {g.get('Y', 0)} / {g.get('R', 0)} |",
+        f"| G / Y / R / U | {g.get('G', 0)} / {g.get('Y', 0)} / {g.get('R', 0)} / {g.get('U', 0)} |",
         "",
         "**Top accounts (by entitled licenses)**",
     ]

@@ -8,8 +8,9 @@ CheckBack.Dashboard = CheckBack.Dashboard || {};
  * Shared column names and dashboard constants.
  */
 CheckBack.Dashboard.Constants = {
-  GYR_COL: '(G/Y/R)',
-  LEGACY_GYR_COL: ' (G/Y/R)',
+  GYR_COL: '(G/Y/R/U)',
+  LEGACY_GYR_COL: '(G/Y/R)',
+  LEGACY_GYR_COL_SPACED: ' (G/Y/R)',
   /** Merged license column (provisioned/entitled pairs). Legacy split cols still supported in parsers. */
   LICENSE_COL: 'Provisioned/Entitled Lic Calling',
   LEGACY_ENTITLED_COL: 'Entitled Lic Calling',
@@ -44,7 +45,7 @@ CheckBack.Dashboard.Constants = {
   PORTFOLIO_COLUMN_PREFER: [
     'Account Name',
     'Opportunity Name',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'Customer org id',
     'TCV $',
     'AAR $',
@@ -80,7 +81,7 @@ CheckBack.Dashboard.Constants = {
     'Notes from Calling Analytics',
     'Notes from provisioned features',
     'CCEP trial (Y/N)',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'TAC/BEMS',
     'AAR $',
     'Collab AE/SE',
@@ -113,7 +114,7 @@ CheckBack.Dashboard.Constants = {
     'Account Name',
     'Opportunity Name',
     'Customer org id',
-    '(G/Y/R)',
+    '(G/Y/R/U)',
     'TCV $',
     'AAR $',
     'Sub #',
@@ -255,8 +256,7 @@ class BiaSanitizer {
       col === 'Data gathered date' ||
       col === 'Data gathered by' ||
       col === 'Connected-UC (Y/N)' ||
-      col === '(G/Y/R)' ||
-      col === ' (G/Y/R)'
+      BiaSanitizer.isGyrColumn(col)
     );
   }
 
@@ -315,55 +315,86 @@ class BiaSanitizer {
   static healthClass(h) {
     const x = String(h || '').toLowerCase();
     if (x === 'good') return { class: 'good', label: 'Good' };
-    if (x === 'risk') return { class: 'risk', label: 'Risk' };
+    if (x === 'risk' || x === 'watch' || x === 'yellow') return { class: 'risk', label: 'Risk' };
+    if (x === 'critical') return { class: 'critical', label: 'Critical' };
     if (x === 'upsell') return { class: 'upsell', label: 'Upsell' };
     return { class: 'unknown', label: h || '—' };
   }
 
   static healthToGyr(health) {
-    const h = String(health || '').toLowerCase();
-    if (h === 'good') return 'G';
-    if (h === 'risk') return 'R';
-    if (h === 'upsell' || h === 'yellow') return 'Y';
+    const h = String(health || '').trim().toLowerCase();
+    if (h === 'good' || h === 'g') return 'G';
+    if (h === 'risk' || h === 'yellow' || h === 'watch' || h === 'y') return 'Y';
+    if (h === 'critical' || h === 'r') return 'R';
+    if (h === 'upsell' || h === 'u') return 'U';
     return '';
   }
 
-  /** Normalized G/Y/R from a workbook row (canonical + legacy column). */
-  static rowGyrValue(row) {
-    if (!row) return '';
-    const gyrCol =
-      (typeof CheckBack !== 'undefined' &&
-        CheckBack.Dashboard &&
-        CheckBack.Dashboard.Constants &&
-        CheckBack.Dashboard.Constants.GYR_COL) ||
-      '(G/Y/R)';
-    const legacyCol =
-      (typeof CheckBack !== 'undefined' &&
-        CheckBack.Dashboard &&
-        CheckBack.Dashboard.Constants &&
-        CheckBack.Dashboard.Constants.LEGACY_GYR_COL) ||
-      ' (G/Y/R)';
-    const raw = row[gyrCol] ?? row[legacyCol] ?? row['Final Determination'] ?? '';
-    return BiaSanitizer.normalizeGyrColumnValue(raw);
+  /** Canonical + legacy health column names: (G/Y/R/U), (G/Y/R), leading-space (G/Y/R). */
+  static gyrColumnNames() {
+    const C =
+      typeof CheckBack !== 'undefined' &&
+      CheckBack.Dashboard &&
+      CheckBack.Dashboard.Constants
+        ? CheckBack.Dashboard.Constants
+        : {};
+    return [
+      C.GYR_COL || '(G/Y/R/U)',
+      C.LEGACY_GYR_COL || '(G/Y/R)',
+      C.LEGACY_GYR_COL_SPACED || ' (G/Y/R)',
+    ];
   }
 
-  /** Workbook (G/Y/R) column — single letter only, not slide display labels. */
+  static isGyrColumn(col) {
+    return BiaSanitizer.gyrColumnNames().includes(col);
+  }
+
+  static rowGyrRaw(row) {
+    if (!row) return '';
+    for (const name of BiaSanitizer.gyrColumnNames()) {
+      const v = row[name];
+      if (v != null && String(v).trim() !== '' && String(v).trim() !== '—') return v;
+    }
+    const fd = row['Final Determination'];
+    if (fd != null && String(fd).trim() !== '' && String(fd).trim() !== '—') return fd;
+    return '';
+  }
+
+  /** Copy a legacy health value onto the canonical (G/Y/R/U) key. */
+  static aliasGyrOnRow(row) {
+    if (!row) return row;
+    const canonical = BiaSanitizer.gyrColumnNames()[0];
+    const raw = BiaSanitizer.rowGyrRaw(row);
+    if (raw !== '' && (row[canonical] == null || String(row[canonical]).trim() === '')) {
+      row[canonical] = BiaSanitizer.normalizeGyrColumnValue(raw);
+    }
+    return row;
+  }
+
+  /** Normalized G/Y/R/U from a workbook row (canonical + legacy columns). */
+  static rowGyrValue(row) {
+    return BiaSanitizer.normalizeGyrColumnValue(BiaSanitizer.rowGyrRaw(row));
+  }
+
+  /** Workbook health column — single letter only, not slide display labels. */
   static normalizeGyrColumnValue(raw) {
     const s = String(raw ?? '').trim();
     if (!s || s === '—') return '';
     const fromLabel = BiaSanitizer.healthToGyr(s);
     if (fromLabel) return fromLabel;
-    const c = s.toUpperCase().charAt(0);
+    const upper = s.toUpperCase();
+    if (upper === 'G' || upper === 'Y' || upper === 'R' || upper === 'U') return upper;
+    const c = upper.charAt(0);
     if (c === 'G' || c === 'Y' || c === 'R') return c;
     return s;
   }
 
   static gyrToHealth(gyr) {
-    const v = String(gyr || '').trim().toUpperCase();
-    const c = v.charAt(0);
-    if (c === 'G') return 'Good';
-    if (c === 'R') return 'Risk';
-    if (c === 'Y') return 'Upsell';
+    const letter = BiaSanitizer.normalizeGyrColumnValue(gyr);
+    if (letter === 'G') return 'Good';
+    if (letter === 'Y') return 'Risk';
+    if (letter === 'R') return 'Critical';
+    if (letter === 'U') return 'Upsell';
     return '';
   }
 
@@ -371,7 +402,7 @@ class BiaSanitizer {
     const t = String(term || '');
     let years = 5;
     let currentYear = 2;
-    const yrMatch = t.match(/(\d+)\s*yr/i);
+    const yrMatch = t.match(/(\d+)\s*y/i);
     if (yrMatch) years = Math.min(10, Math.max(1, parseInt(yrMatch[1], 10)));
     const yearOf = t.match(/Year\s+(\d+)\s+of\s+(\d+)/i);
     if (yearOf) {
@@ -1287,15 +1318,13 @@ class BiaWorkbookMapper {
 
   static rowToSlide(row) {
     const enriched = NoteParser.enrichRowFromNotes(row);
-    const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
+    const gyr = BiaSanitizer.rowGyrRaw(enriched);
     const subTerm =
       enriched['Sub Term'] ||
       enriched['Subscription dates'] ||
       enriched['Sub start date (MM/DD/YYYY)'] ||
       '';
     const timeline = BiaSanitizer.parseTimelineFromTerm(subTerm);
-    const gyr = enriched[GYR_COL] || enriched[LEGACY_GYR_COL] || enriched['Final Determination'] || '';
     const trends = [];
     if (!BiaSanitizer.isEmptyVal(enriched['Trend active users 90d'])) {
       trends.push(String(enriched['Trend active users 90d']).trim());
@@ -1399,7 +1428,6 @@ class BiaWorkbookMapper {
 
   static applyBiaFields(out, deck, wb) {
     const GYR_COL = CheckBack.Dashboard.Constants.GYR_COL;
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants.LEGACY_GYR_COL;
     const s = deck.subscription || {};
     const p = deck.provisioning || {};
     const f = deck.features || {};
@@ -1412,7 +1440,7 @@ class BiaWorkbookMapper {
     set('Account Name', deck.accountName || wbRow['Account Name']);
     set('Opportunity Name', deck.customerName);
     set('Customer org id', deck.orgId);
-    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || wbRow[GYR_COL] || wbRow[LEGACY_GYR_COL] || wbRow['Final Determination'] || '');
+    set(GYR_COL, BiaSanitizer.healthToGyr(deck.health) || BiaSanitizer.rowGyrRaw(wbRow) || '');
     set('TCV $', s.tcv || wbRow['TCV $']);
     set('AAR $', s.aar || wbRow['AAR $']);
     set('Sub #', s.sub || wbRow['Sub #']);
@@ -1564,6 +1592,11 @@ class BiaPortfolioService {
         seen.add(c);
       }
     });
+    const legacyGyr =
+      typeof BiaSanitizer !== 'undefined' && BiaSanitizer.gyrColumnNames
+        ? BiaSanitizer.gyrColumnNames().slice(1)
+        : ['(G/Y/R)', ' (G/Y/R)'];
+    legacyGyr.forEach((legacy) => seen.add(legacy));
     const hasMerged = rows.some((r) => String(r[licenseCol] || '').trim());
     if (hasMerged) {
       ['Entitled Lic Calling', 'Providioned Lic Calling'].forEach((virtualCol) => {
@@ -2024,7 +2057,8 @@ class BiaSlidePdf {
     notes: [59, 130, 246],
     health: {
       good: [0, 212, 160],
-      risk: [239, 68, 68],
+      risk: [251, 191, 36],
+      critical: [239, 68, 68],
       upsell: [124, 58, 237],
       unknown: [30, 41, 59],
     },
@@ -2116,16 +2150,17 @@ class BiaSlidePdf {
       doc.text(BiaSlidePdf.cleanText(gathered).substring(0, 110), 12, yText + 5);
     }
 
-    const badgeW = 30;
+    const badgeW = h.label.length > 6 ? 42 : 30;
     const badgeH = 22;
     const badgeX = pageW - 12 - badgeW;
     const badgeY = 6;
     const healthRgb = BiaSlidePdf.COLORS.health[h.class] || BiaSlidePdf.COLORS.health.unknown;
     BiaSlidePdf.setFill(doc, healthRgb);
     doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 3, 3, 'F');
-    doc.setFontSize(11);
+    doc.setFontSize(h.label.length > 6 ? 9 : 11);
     doc.setFont(undefined, 'bold');
-    BiaSlidePdf.setText(doc, h.class === 'good' ? [4, 47, 46] : [255, 255, 255]);
+    const darkText = h.class === 'good' || h.class === 'risk';
+    BiaSlidePdf.setText(doc, darkText ? [4, 47, 46] : [255, 255, 255]);
     doc.text(h.label.substring(0, 10), badgeX + badgeW / 2, badgeY + 13, { align: 'center' });
     doc.setFont(undefined, 'normal');
 
@@ -2927,9 +2962,7 @@ class BiaSlideEditor {
       if (href && href.startsWith('http')) return href.trim();
     }
     const text = el.innerText.replace(/\u00a0/g, ' ').trim();
-    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
-    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+    if (BiaSanitizer.isGyrColumn(col)) {
       return BiaSanitizer.normalizeGyrColumnValue(text);
     }
     if (BiaSanitizer.isMoneyColumn(col)) {
@@ -2963,9 +2996,7 @@ class BiaSlideEditor {
   }
 
   static normalizeSavedColumnValue(col, val) {
-    const GYR_COL = CheckBack.Dashboard.Constants?.GYR_COL || '(G/Y/R)';
-    const LEGACY_GYR_COL = CheckBack.Dashboard.Constants?.LEGACY_GYR_COL || ' (G/Y/R)';
-    if (col === GYR_COL || col === LEGACY_GYR_COL) {
+    if (BiaSanitizer.isGyrColumn(col)) {
       return BiaSanitizer.normalizeGyrColumnValue(val);
     }
     if (BiaSanitizer.isMoneyColumn(col)) {
@@ -3054,6 +3085,7 @@ CheckBack.Dashboard.BiaSlideEditor = BiaSlideEditor;
 const SchemaDashboard = (function () {
   const CHECKBACK_MARKERS = [
     'Provisioned/Entitled Lic Calling',
+    '(G/Y/R/U)',
     '(G/Y/R)',
     'Entitled Lic Calling',
     'Providioned Lic Calling',
@@ -3121,6 +3153,9 @@ const SchemaDashboard = (function () {
       const oid = out['Customer org id'];
       if (oid != null && String(oid).trim() !== '') {
         out['Customer org id'] = String(oid).trim();
+      }
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.aliasGyrOnRow) {
+        BiaSanitizer.aliasGyrOnRow(out);
       }
       return out;
     });
@@ -3238,14 +3273,21 @@ const SchemaDashboard = (function () {
  * Check Back / adoption health KPIs, filters, and charts.
  */
 const CheckBackDashboard = (function () {
-  const GYR_COL =
-    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R)';
+    const GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R/U)';
   const LEGACY_GYR_COL =
-    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || ' (G/Y/R)';
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || '(G/Y/R)';
   const LICENSE_COL =
     (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LICENSE_COL) ||
     'Provisioned/Entitled Lic Calling';
-  const GYR_COLORS = { G: '#00d4a0', Y: '#fbbf24', R: '#ef4444', '': '#64748b' };
+  const GYR_LETTERS = ['G', 'Y', 'R', 'U'];
+  const GYR_COLORS = {
+    G: '#00d4a0',
+    Y: '#fbbf24',
+    R: '#ef4444',
+    U: '#7c3aed',
+    '': '#64748b',
+  };
   const FILTER_COLUMNS = [
     'Partner',
     'Migrating from',
@@ -3300,26 +3342,37 @@ const CheckBackDashboard = (function () {
     return Math.max(...nums.map((n) => parseFloat(n.replace(/,/g, '')) || 0));
   }
 
-  const GYR_FILTER_LABELS = { G: 'G (Good)', Y: 'Y (Upsell)', R: 'R (Risk)' };
+  const GYR_FILTER_LABELS = {
+    G: 'G (Good)',
+    Y: 'Y (Risk)',
+    R: 'R (Critical)',
+    U: 'U (Upsell)',
+  };
 
   function isGyrColumn(col) {
-    return col === GYR_COL || col === LEGACY_GYR_COL;
+    if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.isGyrColumn) {
+      return BiaSanitizer.isGyrColumn(col);
+    }
+    return col === GYR_COL || col === LEGACY_GYR_COL || col === ' (G/Y/R)';
   }
 
   function rowGyrValue(row) {
     if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.rowGyrValue) {
       return BiaSanitizer.rowGyrValue(row);
     }
-    const raw = row[GYR_COL] ?? row[LEGACY_GYR_COL] ?? '';
+    const raw =
+      (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.rowGyrRaw
+        ? BiaSanitizer.rowGyrRaw(row)
+        : row[GYR_COL] ?? row[LEGACY_GYR_COL] ?? row[' (G/Y/R)'] ?? '') || '';
     const v = String(raw || '').trim().toUpperCase().charAt(0);
-    return v === 'G' || v === 'Y' || v === 'R' ? v : '';
+    return GYR_LETTERS.includes(v) ? v : '';
   }
 
   function gyrCounts(rows) {
-    const out = { G: 0, Y: 0, R: 0 };
+    const out = { G: 0, Y: 0, R: 0, U: 0 };
     (rows || []).forEach((r) => {
       const k = rowGyrValue(r);
-      if (k === 'G' || k === 'Y' || k === 'R') out[k] += 1;
+      if (GYR_LETTERS.includes(k)) out[k] += 1;
     });
     return out;
   }
@@ -3332,6 +3385,7 @@ const CheckBackDashboard = (function () {
     if (norm === 'G') return `<span class="badge badge-low">G</span>`;
     if (norm === 'Y') return `<span class="badge badge-medium">Y</span>`;
     if (norm === 'R') return `<span class="badge badge-high">R</span>`;
+    if (norm === 'U') return `<span class="badge badge-upsell">U</span>`;
     return val || '';
   }
 
@@ -3343,11 +3397,16 @@ const CheckBackDashboard = (function () {
     sd.innerHTML = `<label class="filter-label">Account / Opportunity Search</label><input class="search-input" placeholder="Account or Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
     grid.appendChild(sd);
     FILTER_COLUMNS.forEach((col) => {
-      if (!allColumns.includes(col)) return;
+      if (isGyrColumn(col)) {
+        const hasGyr = allColumns.some((c) => isGyrColumn(c)) || allColumns.includes(GYR_COL);
+        if (!hasGyr) return;
+      } else if (!allColumns.includes(col)) {
+        return;
+      }
       let vals;
       if (isGyrColumn(col)) {
         const counts = gyrCounts(rawData);
-        vals = ['G', 'Y', 'R'].filter((k) => counts[k] > 0);
+        vals = GYR_LETTERS.filter((k) => counts[k] > 0);
       } else {
         vals = [...new Set(rawData.map((r) => r[col]).filter((v) => v !== ''))].sort();
       }
@@ -3405,9 +3464,10 @@ const CheckBackDashboard = (function () {
       totalAct += t.active;
     });
     const gyr = gyrCounts(d);
-    const red = gyr.R || 0;
-    const yellow = gyr.Y || 0;
     const green = gyr.G || 0;
+    const yellow = gyr.Y || 0;
+    const red = gyr.R || 0;
+    const upsell = gyr.U || 0;
     const noSetup = d.filter(
       (r) => String(r['Calling Setup Assist included (Y/N)'] || '').toUpperCase() === 'N'
     ).length;
@@ -3444,9 +3504,9 @@ const CheckBackDashboard = (function () {
       },
       {
         id: 'builtin-gyr',
-        label: 'G / Y / R',
-        val: `${green} / ${yellow} / ${red}`,
-        sub: 'Green · Yellow · Red counts',
+        label: 'G / Y / R / U',
+        val: `${green} / ${yellow} / ${red} / ${upsell}`,
+        sub: 'Good · Risk · Critical · Upsell',
         icon: '🚦',
         color: 'yellow',
         drill: { col: GYR_COL, val: 'R' },
@@ -3501,7 +3561,7 @@ const CheckBackDashboard = (function () {
 
   function buildGyrChart(d) {
     const gyr = gyrCounts(d);
-    const labels = ['G', 'Y', 'R'].filter((k) => gyr[k] > 0);
+    const labels = GYR_LETTERS.filter((k) => gyr[k] > 0);
     const data = labels.map((k) => gyr[k]);
     const colors = labels.map((k) => GYR_COLORS[k] || '#64748b');
     makeChart(
@@ -3692,7 +3752,7 @@ const CheckBackDashboard = (function () {
       const link = salesforceLinkHtml(row, col);
       if (link) return link;
     }
-    if (col === GYR_COL) return getGyrBadge(val);
+    if (isGyrColumn(col) || col === GYR_COL) return getGyrBadge(row ? rowGyrValue(row) : val);
     if (col === LICENSE_COL && row && typeof LicenseProductParser !== 'undefined') {
       return LicenseProductParser.formatLicenseColumn(row) || val;
     }
@@ -6254,6 +6314,7 @@ const DashboardExport = (function () {
     'Locations main number',
     'Control Hub Helpdesk',
     ' (G/Y/R)',
+    '(G/Y/R)',
     'Final Determination',
     'CSM / Account Team notes',
     'Trial',
@@ -6288,11 +6349,10 @@ const DashboardExport = (function () {
   }
 
   function exportCellValue(row, col) {
-    if (col === '(G/Y/R)') {
-      const current = row['(G/Y/R)'];
+    if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.isGyrColumn && BiaSanitizer.isGyrColumn(col)) {
       const raw =
-        current != null && String(current).trim() !== '' ? current : row[' (G/Y/R)'];
-      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.normalizeGyrColumnValue) {
+        typeof BiaSanitizer.rowGyrRaw === 'function' ? BiaSanitizer.rowGyrRaw(row) : row[col];
+      if (typeof BiaSanitizer.normalizeGyrColumnValue === 'function') {
         return cellValue(BiaSanitizer.normalizeGyrColumnValue(raw));
       }
       return cellValue(raw);

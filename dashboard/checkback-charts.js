@@ -2,14 +2,21 @@
  * Check Back / adoption health KPIs, filters, and charts.
  */
 const CheckBackDashboard = (function () {
-  const GYR_COL =
-    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R)';
+    const GYR_COL =
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.GYR_COL) || '(G/Y/R/U)';
   const LEGACY_GYR_COL =
-    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || ' (G/Y/R)';
+    (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LEGACY_GYR_COL) || '(G/Y/R)';
   const LICENSE_COL =
     (CheckBack.Dashboard.Constants && CheckBack.Dashboard.Constants.LICENSE_COL) ||
     'Provisioned/Entitled Lic Calling';
-  const GYR_COLORS = { G: '#00d4a0', Y: '#fbbf24', R: '#ef4444', '': '#64748b' };
+  const GYR_LETTERS = ['G', 'Y', 'R', 'U'];
+  const GYR_COLORS = {
+    G: '#00d4a0',
+    Y: '#fbbf24',
+    R: '#ef4444',
+    U: '#7c3aed',
+    '': '#64748b',
+  };
   const FILTER_COLUMNS = [
     'Partner',
     'Migrating from',
@@ -64,26 +71,37 @@ const CheckBackDashboard = (function () {
     return Math.max(...nums.map((n) => parseFloat(n.replace(/,/g, '')) || 0));
   }
 
-  const GYR_FILTER_LABELS = { G: 'G (Good)', Y: 'Y (Upsell)', R: 'R (Risk)' };
+  const GYR_FILTER_LABELS = {
+    G: 'G (Good)',
+    Y: 'Y (Risk)',
+    R: 'R (Critical)',
+    U: 'U (Upsell)',
+  };
 
   function isGyrColumn(col) {
-    return col === GYR_COL || col === LEGACY_GYR_COL;
+    if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.isGyrColumn) {
+      return BiaSanitizer.isGyrColumn(col);
+    }
+    return col === GYR_COL || col === LEGACY_GYR_COL || col === ' (G/Y/R)';
   }
 
   function rowGyrValue(row) {
     if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.rowGyrValue) {
       return BiaSanitizer.rowGyrValue(row);
     }
-    const raw = row[GYR_COL] ?? row[LEGACY_GYR_COL] ?? '';
+    const raw =
+      (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.rowGyrRaw
+        ? BiaSanitizer.rowGyrRaw(row)
+        : row[GYR_COL] ?? row[LEGACY_GYR_COL] ?? row[' (G/Y/R)'] ?? '') || '';
     const v = String(raw || '').trim().toUpperCase().charAt(0);
-    return v === 'G' || v === 'Y' || v === 'R' ? v : '';
+    return GYR_LETTERS.includes(v) ? v : '';
   }
 
   function gyrCounts(rows) {
-    const out = { G: 0, Y: 0, R: 0 };
+    const out = { G: 0, Y: 0, R: 0, U: 0 };
     (rows || []).forEach((r) => {
       const k = rowGyrValue(r);
-      if (k === 'G' || k === 'Y' || k === 'R') out[k] += 1;
+      if (GYR_LETTERS.includes(k)) out[k] += 1;
     });
     return out;
   }
@@ -96,6 +114,7 @@ const CheckBackDashboard = (function () {
     if (norm === 'G') return `<span class="badge badge-low">G</span>`;
     if (norm === 'Y') return `<span class="badge badge-medium">Y</span>`;
     if (norm === 'R') return `<span class="badge badge-high">R</span>`;
+    if (norm === 'U') return `<span class="badge badge-upsell">U</span>`;
     return val || '';
   }
 
@@ -107,11 +126,16 @@ const CheckBackDashboard = (function () {
     sd.innerHTML = `<label class="filter-label">Account / Opportunity Search</label><input class="search-input" placeholder="Account or Opportunity Name..." id="acctSearch" oninput="applyFilters()">`;
     grid.appendChild(sd);
     FILTER_COLUMNS.forEach((col) => {
-      if (!allColumns.includes(col)) return;
+      if (isGyrColumn(col)) {
+        const hasGyr = allColumns.some((c) => isGyrColumn(c)) || allColumns.includes(GYR_COL);
+        if (!hasGyr) return;
+      } else if (!allColumns.includes(col)) {
+        return;
+      }
       let vals;
       if (isGyrColumn(col)) {
         const counts = gyrCounts(rawData);
-        vals = ['G', 'Y', 'R'].filter((k) => counts[k] > 0);
+        vals = GYR_LETTERS.filter((k) => counts[k] > 0);
       } else {
         vals = [...new Set(rawData.map((r) => r[col]).filter((v) => v !== ''))].sort();
       }
@@ -169,9 +193,10 @@ const CheckBackDashboard = (function () {
       totalAct += t.active;
     });
     const gyr = gyrCounts(d);
-    const red = gyr.R || 0;
-    const yellow = gyr.Y || 0;
     const green = gyr.G || 0;
+    const yellow = gyr.Y || 0;
+    const red = gyr.R || 0;
+    const upsell = gyr.U || 0;
     const noSetup = d.filter(
       (r) => String(r['Calling Setup Assist included (Y/N)'] || '').toUpperCase() === 'N'
     ).length;
@@ -208,9 +233,9 @@ const CheckBackDashboard = (function () {
       },
       {
         id: 'builtin-gyr',
-        label: 'G / Y / R',
-        val: `${green} / ${yellow} / ${red}`,
-        sub: 'Green · Yellow · Red counts',
+        label: 'G / Y / R / U',
+        val: `${green} / ${yellow} / ${red} / ${upsell}`,
+        sub: 'Good · Risk · Critical · Upsell',
         icon: '🚦',
         color: 'yellow',
         drill: { col: GYR_COL, val: 'R' },
@@ -265,7 +290,7 @@ const CheckBackDashboard = (function () {
 
   function buildGyrChart(d) {
     const gyr = gyrCounts(d);
-    const labels = ['G', 'Y', 'R'].filter((k) => gyr[k] > 0);
+    const labels = GYR_LETTERS.filter((k) => gyr[k] > 0);
     const data = labels.map((k) => gyr[k]);
     const colors = labels.map((k) => GYR_COLORS[k] || '#64748b');
     makeChart(
@@ -456,7 +481,7 @@ const CheckBackDashboard = (function () {
       const link = salesforceLinkHtml(row, col);
       if (link) return link;
     }
-    if (col === GYR_COL) return getGyrBadge(val);
+    if (isGyrColumn(col) || col === GYR_COL) return getGyrBadge(row ? rowGyrValue(row) : val);
     if (col === LICENSE_COL && row && typeof LicenseProductParser !== 'undefined') {
       return LicenseProductParser.formatLicenseColumn(row) || val;
     }

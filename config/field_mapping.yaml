@@ -7,7 +7,7 @@ install_base_to_checkback:
   CSM_NAME: "CSM name"
   SFDC_OPPORTUNITY_NAME: "Opportunity (linked)"
   Lifecycle Stage_Current: "Notes from provisioned features"
-  Risk2_0_current: "(G/Y/R)"
+  Risk2_0_current: "(G/Y/R/U)"
 
 risk_to_gyr:
   Low: G
@@ -73,7 +73,7 @@ check_back_columns:
   - "Notes from Calling Analytics"
   - "Notes from provisioned features"
   - "CCEP trial (Y/N)"
-  - "(G/Y/R)"
+  - "(G/Y/R/U)"
   - TAC/BEMS
   - "AAR $"
   - Collab AE/SE
@@ -148,4 +148,4 @@ powerpoint_sections:
     - "Notes from provisioned features"
     - TAC/BEMS
   health:
-    - "(G/Y/R)"
+    - "(G/Y/R/U)"

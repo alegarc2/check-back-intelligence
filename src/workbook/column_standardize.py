@@ -12,6 +12,7 @@ from openpyxl.styles import Font
 from openpyxl.worksheet.hyperlink import Hyperlink
 
 from .sub_term import LEGACY_SUB_START_COL, SUB_TERM_COL, sub_term_from_text
+from .check_back_template import GYR_COLUMNS
 
 CCRC_SUB_DETAIL_PREFIX = "https://ccrc.cisco.com/subscriptions/detail/"
 
@@ -220,11 +221,26 @@ def _http_url_or_red(s: str, *, prefer_host: re.Pattern[str] | None = None) -> t
     return s, not HTTP_URL_RE.match(s)
 
 
+_GYR_LABELS = {
+    "GOOD": "G",
+    "RISK": "Y",
+    "YELLOW": "Y",
+    "WATCH": "Y",
+    "CRITICAL": "R",
+    "UPSELL": "U",
+}
+
+
 def _gyr(s: str) -> tuple[str, bool]:
     s = _cell_str(s)
     if not s:
         return "", False
-    letter = s.upper()[:1]
+    key = s.strip().upper()
+    if key in _GYR_LABELS:
+        return _GYR_LABELS[key], False
+    if key in ("G", "Y", "R", "U"):
+        return key, False
+    letter = key[:1]
     if letter in ("G", "Y", "R"):
         return letter, False
     return s, True
@@ -603,7 +619,7 @@ def standardize_workbook(
                 new_val, red = _date_iso(val)
             elif name in (SUB_TERM_COL, LEGACY_SUB_START_COL):
                 new_val, red = sub_term_from_text(raw, term_as_of)
-            elif name == " (G/Y/R)" or name == "(G/Y/R)":
+            elif name in GYR_COLUMNS:
                 new_val, red = _gyr(raw)
             elif name == "CCEP trial (Y/N)":
                 yn, note, red = _ccep_yn(raw)

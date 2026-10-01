@@ -87,8 +87,7 @@ class BiaSanitizer {
       col === 'Data gathered date' ||
       col === 'Data gathered by' ||
       col === 'Connected-UC (Y/N)' ||
-      col === '(G/Y/R)' ||
-      col === ' (G/Y/R)'
+      BiaSanitizer.isGyrColumn(col)
     );
   }
 
@@ -147,55 +146,86 @@ class BiaSanitizer {
   static healthClass(h) {
     const x = String(h || '').toLowerCase();
     if (x === 'good') return { class: 'good', label: 'Good' };
-    if (x === 'risk') return { class: 'risk', label: 'Risk' };
+    if (x === 'risk' || x === 'watch' || x === 'yellow') return { class: 'risk', label: 'Risk' };
+    if (x === 'critical') return { class: 'critical', label: 'Critical' };
     if (x === 'upsell') return { class: 'upsell', label: 'Upsell' };
     return { class: 'unknown', label: h || '—' };
   }
 
   static healthToGyr(health) {
-    const h = String(health || '').toLowerCase();
-    if (h === 'good') return 'G';
-    if (h === 'risk') return 'R';
-    if (h === 'upsell' || h === 'yellow') return 'Y';
+    const h = String(health || '').trim().toLowerCase();
+    if (h === 'good' || h === 'g') return 'G';
+    if (h === 'risk' || h === 'yellow' || h === 'watch' || h === 'y') return 'Y';
+    if (h === 'critical' || h === 'r') return 'R';
+    if (h === 'upsell' || h === 'u') return 'U';
     return '';
   }
 
-  /** Normalized G/Y/R from a workbook row (canonical + legacy column). */
-  static rowGyrValue(row) {
-    if (!row) return '';
-    const gyrCol =
-      (typeof CheckBack !== 'undefined' &&
-        CheckBack.Dashboard &&
-        CheckBack.Dashboard.Constants &&
-        CheckBack.Dashboard.Constants.GYR_COL) ||
-      '(G/Y/R)';
-    const legacyCol =
-      (typeof CheckBack !== 'undefined' &&
-        CheckBack.Dashboard &&
-        CheckBack.Dashboard.Constants &&
-        CheckBack.Dashboard.Constants.LEGACY_GYR_COL) ||
-      ' (G/Y/R)';
-    const raw = row[gyrCol] ?? row[legacyCol] ?? row['Final Determination'] ?? '';
-    return BiaSanitizer.normalizeGyrColumnValue(raw);
+  /** Canonical + legacy health column names: (G/Y/R/U), (G/Y/R), leading-space (G/Y/R). */
+  static gyrColumnNames() {
+    const C =
+      typeof CheckBack !== 'undefined' &&
+      CheckBack.Dashboard &&
+      CheckBack.Dashboard.Constants
+        ? CheckBack.Dashboard.Constants
+        : {};
+    return [
+      C.GYR_COL || '(G/Y/R/U)',
+      C.LEGACY_GYR_COL || '(G/Y/R)',
+      C.LEGACY_GYR_COL_SPACED || ' (G/Y/R)',
+    ];
   }
 
-  /** Workbook (G/Y/R) column — single letter only, not slide display labels. */
+  static isGyrColumn(col) {
+    return BiaSanitizer.gyrColumnNames().includes(col);
+  }
+
+  static rowGyrRaw(row) {
+    if (!row) return '';
+    for (const name of BiaSanitizer.gyrColumnNames()) {
+      const v = row[name];
+      if (v != null && String(v).trim() !== '' && String(v).trim() !== '—') return v;
+    }
+    const fd = row['Final Determination'];
+    if (fd != null && String(fd).trim() !== '' && String(fd).trim() !== '—') return fd;
+    return '';
+  }
+
+  /** Copy a legacy health value onto the canonical (G/Y/R/U) key. */
+  static aliasGyrOnRow(row) {
+    if (!row) return row;
+    const canonical = BiaSanitizer.gyrColumnNames()[0];
+    const raw = BiaSanitizer.rowGyrRaw(row);
+    if (raw !== '' && (row[canonical] == null || String(row[canonical]).trim() === '')) {
+      row[canonical] = BiaSanitizer.normalizeGyrColumnValue(raw);
+    }
+    return row;
+  }
+
+  /** Normalized G/Y/R/U from a workbook row (canonical + legacy columns). */
+  static rowGyrValue(row) {
+    return BiaSanitizer.normalizeGyrColumnValue(BiaSanitizer.rowGyrRaw(row));
+  }
+
+  /** Workbook health column — single letter only, not slide display labels. */
   static normalizeGyrColumnValue(raw) {
     const s = String(raw ?? '').trim();
     if (!s || s === '—') return '';
     const fromLabel = BiaSanitizer.healthToGyr(s);
     if (fromLabel) return fromLabel;
-    const c = s.toUpperCase().charAt(0);
+    const upper = s.toUpperCase();
+    if (upper === 'G' || upper === 'Y' || upper === 'R' || upper === 'U') return upper;
+    const c = upper.charAt(0);
     if (c === 'G' || c === 'Y' || c === 'R') return c;
     return s;
   }
 
   static gyrToHealth(gyr) {
-    const v = String(gyr || '').trim().toUpperCase();
-    const c = v.charAt(0);
-    if (c === 'G') return 'Good';
-    if (c === 'R') return 'Risk';
-    if (c === 'Y') return 'Upsell';
+    const letter = BiaSanitizer.normalizeGyrColumnValue(gyr);
+    if (letter === 'G') return 'Good';
+    if (letter === 'Y') return 'Risk';
+    if (letter === 'R') return 'Critical';
+    if (letter === 'U') return 'Upsell';
     return '';
   }
 
@@ -203,7 +233,7 @@ class BiaSanitizer {
     const t = String(term || '');
     let years = 5;
     let currentYear = 2;
-    const yrMatch = t.match(/(\d+)\s*yr/i);
+    const yrMatch = t.match(/(\d+)\s*y/i);
     if (yrMatch) years = Math.min(10, Math.max(1, parseInt(yrMatch[1], 10)));
     const yearOf = t.match(/Year\s+(\d+)\s+of\s+(\d+)/i);
     if (yearOf) {

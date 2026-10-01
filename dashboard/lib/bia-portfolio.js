@@ -70,6 +70,11 @@ class BiaPortfolioService {
         seen.add(c);
       }
     });
+    const legacyGyr =
+      typeof BiaSanitizer !== 'undefined' && BiaSanitizer.gyrColumnNames
+        ? BiaSanitizer.gyrColumnNames().slice(1)
+        : ['(G/Y/R)', ' (G/Y/R)'];
+    legacyGyr.forEach((legacy) => seen.add(legacy));
     const hasMerged = rows.some((r) => String(r[licenseCol] || '').trim());
     if (hasMerged) {
       ['Entitled Lic Calling', 'Providioned Lic Calling'].forEach((virtualCol) => {
