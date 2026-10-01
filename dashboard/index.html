@@ -415,7 +415,7 @@
         <button class="btn btn-outline btn-sm" type="button" onclick="exportPanelSidecar()" title="Subscription / Provisioning / Feature Use columns only">⬇️ Export panels</button>
         <label class="btn btn-outline btn-sm" style="cursor:pointer;" title="Merge panel sidecar xlsx into current data">📥 Import panels<input type="file" id="panelFileInput" accept=".xlsx,.xls" style="display:none;"></label>
       </span>
-      <button class="btn btn-outline" type="button" id="reloadDefaultBtn" onclick="reloadDefaultWorkbook()" title="Reload from output/Check_Back_standardized.xlsx (run ./sync-default-workbook.sh after editing the baseline)">🔄 Reload baseline</button>
+      <button class="btn btn-outline" type="button" id="reloadDefaultBtn" onclick="reloadDefaultWorkbook()" title="Reload from output/Check_Back_standardized.xlsx (run ./sync-default-workbook.sh after editing the baseline)" style="display:none;">🔄 Reload baseline</button>
       <label class="btn btn-primary" style="cursor:pointer;" title="Pick your .xlsx from disk — use after editing Excel">📂 Reload spreadsheet<input type="file" id="fileInputHeader" accept=".xlsx,.xls,.csv" style="display:none;"></label>
     </div>
   </div>
@@ -1033,7 +1033,7 @@ function setupUpload(){
     }).catch(()=>{});
   }
   const reloadBtn=document.getElementById('reloadDefaultBtn');
-  if(reloadBtn)reloadBtn.style.display=IS_LOCAL_DASHBOARD?'inline-flex':'none';
+  if(reloadBtn)reloadBtn.style.display='none';
   const drop=document.getElementById('dropZone');
   drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag-over');});
   drop.addEventListener('dragleave',()=>drop.classList.remove('drag-over'));
@@ -1066,7 +1066,7 @@ function showUploadFallback(){
       : 'Select your <strong>.xlsx</strong> file to load the latest Excel data. After editing, use <strong>📂 Reload spreadsheet</strong> in the header (same file is fine).';
   }
   const syncedBtn=document.getElementById('loadSyncedCopyBtn');
-  if(syncedBtn)syncedBtn.style.display=IS_LOCAL_DASHBOARD?'inline-flex':'none';
+  if(syncedBtn)syncedBtn.style.display='none';
   document.getElementById('uploadZone').style.display='flex';
 }
 
@@ -1166,7 +1166,7 @@ function buildDashboardFromParsed(parsed,displayName,opts){
           hint.textContent='';
         }else if(IS_LOCAL_DASHBOARD){
           hint.style.display='block';
-          hint.innerHTML='Showing the dashboard copy of <code>output/Check_Back_standardized.xlsx</code>. After editing the baseline, run <code>./sync-default-workbook.sh</code> then click <strong>🔄 Reload baseline</strong>, or use <strong>📂 Reload spreadsheet</strong> to pick a file.';
+          hint.innerHTML='Showing the dashboard copy of <code>output/Check_Back_standardized.xlsx</code>. Use <strong>📂 Reload spreadsheet</strong> to pick a file.';
         }else{
           hint.style.display='none';
         }

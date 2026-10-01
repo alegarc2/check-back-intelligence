@@ -43,7 +43,7 @@ export CHECK_BACK_VENV="$PWD/.venv"
 ./check-back dashboard
 ```
 
-The dashboard opens at `http://127.0.0.1:8765/index.html`. Use **📂 Reload spreadsheet** to pick any `.xlsx`, or **🔄 Reload baseline** after syncing the default workbook. Click a customer to open the Business Insight slide; **Save customer data** writes edits back to the local workbook, and **Save PDF** exports that slide.
+The dashboard opens at `http://127.0.0.1:8765/index.html`. Use **📂 Reload spreadsheet** to pick any `.xlsx`. Click a customer to open the Business Insight slide; **Save customer data** writes edits back to the local workbook, and **Save PDF** exports that slide.
 
 > **Note:** Opening `dashboard/index.html` directly (`file://`) will not work — browsers block local script loading. Always use `./check-back dashboard` or `cd dashboard && ./serve.sh`.
 
