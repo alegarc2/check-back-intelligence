@@ -40,7 +40,15 @@ const DashboardExport = (function () {
 
   function cellValue(val) {
     if (val == null) return '';
-    if (val instanceof Date) return val.toISOString().slice(0, 10);
+    if (val instanceof Date) {
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        return BiaSanitizer.formatDateDisplay(val);
+      }
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
     return val;
   }
 
@@ -59,6 +67,12 @@ const DashboardExport = (function () {
         return cellValue(DashboardHtml.normalizeSubColumnValue(raw));
       }
       return cellValue(raw);
+    }
+    if (col === 'Data gathered date') {
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        return cellValue(BiaSanitizer.formatDateDisplay(row[col]));
+      }
+      return cellValue(row[col]);
     }
     if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
       const raw = row[col];

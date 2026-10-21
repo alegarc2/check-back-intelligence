@@ -191,10 +191,7 @@ class BiaSlideRenderer {
     const p = deck.provisioning || {};
     const f = deck.features || {};
     const h = BiaSanitizer.healthClass(deck.health);
-    const gathered =
-      deck.gatheredBy || deck.gatheredDate
-        ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
-        : '';
+    const gathered = BiaSanitizer.gatheredCaption(deck.gatheredBy, deck.gatheredDate);
 
     const trendsHtml = BiaSlideRenderer.renderTrendsBlock(deck);
 

@@ -10,6 +10,8 @@ class BiaSlideMerger {
       ...slide,
       platforms: BiaSanitizer.sanitizeField(slide.platforms),
       accountName: BiaSanitizer.sanitizeField(slide.accountName),
+      gatheredBy: BiaSanitizer.sanitizeField(slide.gatheredBy),
+      gatheredDate: BiaSanitizer.formatDateDisplay(slide.gatheredDate),
       subscription: {
         ...s,
         sub: BiaSanitizer.sanitizeField(s.sub),

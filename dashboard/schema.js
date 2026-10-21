@@ -76,6 +76,9 @@ const SchemaDashboard = (function () {
       if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.aliasGyrOnRow) {
         BiaSanitizer.aliasGyrOnRow(out);
       }
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        out['Data gathered date'] = BiaSanitizer.formatDateDisplay(out['Data gathered date']);
+      }
       return out;
     });
   }

@@ -117,6 +117,52 @@ class BiaSanitizer {
     return BiaSanitizer.formatNumbersInText(raw);
   }
 
+  static pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  /** Calendar date from a local Date — avoids UTC day-shift from toISOString(). */
+  static ymdFromLocalDate(d) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${BiaSanitizer.pad2(d.getMonth() + 1)}-${BiaSanitizer.pad2(d.getDate())}`;
+  }
+
+  /**
+   * Display-only date (YYYY-MM-DD). Drops time and timezone from Excel Date
+   * cells and strings like "Thu Oct 15 2026 00:00:00 GMT+0200 (...)".
+   */
+  static formatDateDisplay(raw) {
+    if (raw == null || raw === '') return '';
+    if (raw instanceof Date) return BiaSanitizer.ymdFromLocalDate(raw);
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 20000 && raw < 80000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round(raw) * 86400000);
+      return `${d.getUTCFullYear()}-${BiaSanitizer.pad2(d.getUTCMonth() + 1)}-${BiaSanitizer.pad2(d.getUTCDate())}`;
+    }
+    const s = String(raw).trim();
+    if (!s || s === '—' || s === '-') return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (/^\d{4}-\d{2}-\d{2}[T\s]/.test(s)) {
+      const d = new Date(s);
+      return BiaSanitizer.ymdFromLocalDate(d) || s.slice(0, 10);
+    }
+    if (
+      /GMT|UTC|Central European|Daylight|Standard Time/i.test(s) ||
+      /^\w{3} \w{3} \d{1,2} \d{4}/.test(s) ||
+      /\d{1,2}:\d{2}:\d{2}/.test(s)
+    ) {
+      const d = new Date(s);
+      return BiaSanitizer.ymdFromLocalDate(d) || s.replace(/\s+\d{1,2}:\d{2}:\d{2}.*$/, '').trim();
+    }
+    return s;
+  }
+
+  static gatheredCaption(by, date) {
+    const who = BiaSanitizer.sanitizeField(by);
+    const when = BiaSanitizer.formatDateDisplay(date);
+    if (!who && !when) return '';
+    return `Data gathered${who ? ' by ' + who : ''}${when ? ' on ' + when : ''}`;
+  }
+
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
   static normalizeMoneyColumnValue(raw) {
     const n = BiaSanitizer.parseMoneyNumber(raw);

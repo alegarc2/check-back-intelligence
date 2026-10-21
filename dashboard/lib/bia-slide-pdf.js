@@ -69,10 +69,7 @@ class BiaSlidePdf {
 
   static drawHeader(doc, deck, pageW) {
     const h = BiaSanitizer.healthClass(deck.health);
-    const gathered =
-      deck.gatheredBy || deck.gatheredDate
-        ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
-        : '';
+    const gathered = BiaSanitizer.gatheredCaption(deck.gatheredBy, deck.gatheredDate);
     const accountName = BiaSlidePdf.cleanText(deck.accountName);
     const customerName = BiaSlidePdf.cleanText(deck.customerName || 'Customer');
     const headerH = accountName ? 40 : 34;

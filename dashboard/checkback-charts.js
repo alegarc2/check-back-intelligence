@@ -482,6 +482,9 @@ const CheckBackDashboard = (function () {
       if (link) return link;
     }
     if (isGyrColumn(col) || col === GYR_COL) return getGyrBadge(row ? rowGyrValue(row) : val);
+    if (col === 'Data gathered date' && typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+      return BiaSanitizer.formatDateDisplay(val);
+    }
     if (col === LICENSE_COL && row && typeof LicenseProductParser !== 'undefined') {
       return LicenseProductParser.formatLicenseColumn(row) || val;
     }

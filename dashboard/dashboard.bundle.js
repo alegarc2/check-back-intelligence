@@ -286,6 +286,52 @@ class BiaSanitizer {
     return BiaSanitizer.formatNumbersInText(raw);
   }
 
+  static pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  /** Calendar date from a local Date — avoids UTC day-shift from toISOString(). */
+  static ymdFromLocalDate(d) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${BiaSanitizer.pad2(d.getMonth() + 1)}-${BiaSanitizer.pad2(d.getDate())}`;
+  }
+
+  /**
+   * Display-only date (YYYY-MM-DD). Drops time and timezone from Excel Date
+   * cells and strings like "Thu Oct 15 2026 00:00:00 GMT+0200 (...)".
+   */
+  static formatDateDisplay(raw) {
+    if (raw == null || raw === '') return '';
+    if (raw instanceof Date) return BiaSanitizer.ymdFromLocalDate(raw);
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 20000 && raw < 80000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round(raw) * 86400000);
+      return `${d.getUTCFullYear()}-${BiaSanitizer.pad2(d.getUTCMonth() + 1)}-${BiaSanitizer.pad2(d.getUTCDate())}`;
+    }
+    const s = String(raw).trim();
+    if (!s || s === '—' || s === '-') return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (/^\d{4}-\d{2}-\d{2}[T\s]/.test(s)) {
+      const d = new Date(s);
+      return BiaSanitizer.ymdFromLocalDate(d) || s.slice(0, 10);
+    }
+    if (
+      /GMT|UTC|Central European|Daylight|Standard Time/i.test(s) ||
+      /^\w{3} \w{3} \d{1,2} \d{4}/.test(s) ||
+      /\d{1,2}:\d{2}:\d{2}/.test(s)
+    ) {
+      const d = new Date(s);
+      return BiaSanitizer.ymdFromLocalDate(d) || s.replace(/\s+\d{1,2}:\d{2}:\d{2}.*$/, '').trim();
+    }
+    return s;
+  }
+
+  static gatheredCaption(by, date) {
+    const who = BiaSanitizer.sanitizeField(by);
+    const when = BiaSanitizer.formatDateDisplay(date);
+    if (!who && !when) return '';
+    return `Data gathered${who ? ' by ' + who : ''}${when ? ' on ' + when : ''}`;
+  }
+
   /** Parse user-edited currency back to a workbook-safe value (used only after slide edits). */
   static normalizeMoneyColumnValue(raw) {
     const n = BiaSanitizer.parseMoneyNumber(raw);
@@ -1362,7 +1408,7 @@ class BiaWorkbookMapper {
       customerName: enriched['Opportunity Name'] || 'Customer',
       orgId: String(enriched['Customer org id'] || '').trim(),
       gatheredBy: enriched['Data gathered by'] || '',
-      gatheredDate: enriched['Data gathered date'] || '',
+      gatheredDate: BiaSanitizer.formatDateDisplay(enriched['Data gathered date']),
       health: BiaSanitizer.gyrToHealth(gyr),
       platforms: enriched['Platforms'] || enriched['Service lines'] || '',
       timelineYears: timeline.years,
@@ -1475,7 +1521,7 @@ class BiaWorkbookMapper {
     const actPct = String(p.activeUsers || '').match(/(\d+)%/);
     if (actPct) set('Active % of provisioned', actPct[1] + '%');
     set('Data gathered by', deck.gatheredBy);
-    set('Data gathered date', deck.gatheredDate);
+    set('Data gathered date', BiaSanitizer.formatDateDisplay(deck.gatheredDate));
     set('Trend active users 90d', deck.trendActiveUsers || wbRow['Trend active users 90d']);
     set('Trend call volume 90d', deck.trendCallVolume || wbRow['Trend call volume 90d']);
 
@@ -1634,6 +1680,8 @@ class BiaSlideMerger {
       ...slide,
       platforms: BiaSanitizer.sanitizeField(slide.platforms),
       accountName: BiaSanitizer.sanitizeField(slide.accountName),
+      gatheredBy: BiaSanitizer.sanitizeField(slide.gatheredBy),
+      gatheredDate: BiaSanitizer.formatDateDisplay(slide.gatheredDate),
       subscription: {
         ...s,
         sub: BiaSanitizer.sanitizeField(s.sub),
@@ -1949,10 +1997,7 @@ class BiaSlideRenderer {
     const p = deck.provisioning || {};
     const f = deck.features || {};
     const h = BiaSanitizer.healthClass(deck.health);
-    const gathered =
-      deck.gatheredBy || deck.gatheredDate
-        ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
-        : '';
+    const gathered = BiaSanitizer.gatheredCaption(deck.gatheredBy, deck.gatheredDate);
 
     const trendsHtml = BiaSlideRenderer.renderTrendsBlock(deck);
 
@@ -2111,10 +2156,7 @@ class BiaSlidePdf {
 
   static drawHeader(doc, deck, pageW) {
     const h = BiaSanitizer.healthClass(deck.health);
-    const gathered =
-      deck.gatheredBy || deck.gatheredDate
-        ? `Data gathered${deck.gatheredBy ? ' by ' + deck.gatheredBy : ''}${deck.gatheredDate ? ' on ' + deck.gatheredDate : ''}`
-        : '';
+    const gathered = BiaSanitizer.gatheredCaption(deck.gatheredBy, deck.gatheredDate);
     const accountName = BiaSlidePdf.cleanText(deck.accountName);
     const customerName = BiaSlidePdf.cleanText(deck.customerName || 'Customer');
     const headerH = accountName ? 40 : 34;
@@ -3157,6 +3199,9 @@ const SchemaDashboard = (function () {
       if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.aliasGyrOnRow) {
         BiaSanitizer.aliasGyrOnRow(out);
       }
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        out['Data gathered date'] = BiaSanitizer.formatDateDisplay(out['Data gathered date']);
+      }
       return out;
     });
   }
@@ -3753,6 +3798,9 @@ const CheckBackDashboard = (function () {
       if (link) return link;
     }
     if (isGyrColumn(col) || col === GYR_COL) return getGyrBadge(row ? rowGyrValue(row) : val);
+    if (col === 'Data gathered date' && typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+      return BiaSanitizer.formatDateDisplay(val);
+    }
     if (col === LICENSE_COL && row && typeof LicenseProductParser !== 'undefined') {
       return LicenseProductParser.formatLicenseColumn(row) || val;
     }
@@ -5988,7 +6036,10 @@ const AccountInsight = (function () {
       active: row['Active Lic Calling'] != null ? String(row['Active Lic Calling']) : '—',
       addons: row['Add-ons included or not'] || '—',
       gatheredBy: row['Data gathered by'] || '',
-      gatheredDate: row['Data gathered date'] || '',
+      gatheredDate:
+        typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay
+          ? BiaSanitizer.formatDateDisplay(row['Data gathered date'])
+          : row['Data gathered date'] || '',
     };
   }
 
@@ -5996,9 +6047,11 @@ const AccountInsight = (function () {
   function renderFromRow(row) {
     const m = buildModel(row);
     const gathered =
-      m.gatheredBy || m.gatheredDate
-        ? `Data gathered${m.gatheredBy ? ' by ' + m.gatheredBy : ''}${m.gatheredDate ? ' on ' + m.gatheredDate : ''}`
-        : '';
+      typeof BiaSanitizer !== 'undefined' && BiaSanitizer.gatheredCaption
+        ? BiaSanitizer.gatheredCaption(m.gatheredBy, m.gatheredDate)
+        : m.gatheredBy || m.gatheredDate
+          ? `Data gathered${m.gatheredBy ? ' by ' + m.gatheredBy : ''}${m.gatheredDate ? ' on ' + m.gatheredDate : ''}`
+          : '';
 
     return `
     <div class="insight-slide">
@@ -6344,7 +6397,15 @@ const DashboardExport = (function () {
 
   function cellValue(val) {
     if (val == null) return '';
-    if (val instanceof Date) return val.toISOString().slice(0, 10);
+    if (val instanceof Date) {
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        return BiaSanitizer.formatDateDisplay(val);
+      }
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
     return val;
   }
 
@@ -6363,6 +6424,12 @@ const DashboardExport = (function () {
         return cellValue(DashboardHtml.normalizeSubColumnValue(raw));
       }
       return cellValue(raw);
+    }
+    if (col === 'Data gathered date') {
+      if (typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay) {
+        return cellValue(BiaSanitizer.formatDateDisplay(row[col]));
+      }
+      return cellValue(row[col]);
     }
     if (col === 'Trend active users 90d' || col === 'Trend call volume 90d') {
       const raw = row[col];

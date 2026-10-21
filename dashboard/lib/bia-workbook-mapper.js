@@ -102,7 +102,7 @@ class BiaWorkbookMapper {
       customerName: enriched['Opportunity Name'] || 'Customer',
       orgId: String(enriched['Customer org id'] || '').trim(),
       gatheredBy: enriched['Data gathered by'] || '',
-      gatheredDate: enriched['Data gathered date'] || '',
+      gatheredDate: BiaSanitizer.formatDateDisplay(enriched['Data gathered date']),
       health: BiaSanitizer.gyrToHealth(gyr),
       platforms: enriched['Platforms'] || enriched['Service lines'] || '',
       timelineYears: timeline.years,
@@ -215,7 +215,7 @@ class BiaWorkbookMapper {
     const actPct = String(p.activeUsers || '').match(/(\d+)%/);
     if (actPct) set('Active % of provisioned', actPct[1] + '%');
     set('Data gathered by', deck.gatheredBy);
-    set('Data gathered date', deck.gatheredDate);
+    set('Data gathered date', BiaSanitizer.formatDateDisplay(deck.gatheredDate));
     set('Trend active users 90d', deck.trendActiveUsers || wbRow['Trend active users 90d']);
     set('Trend call volume 90d', deck.trendCallVolume || wbRow['Trend call volume 90d']);
 

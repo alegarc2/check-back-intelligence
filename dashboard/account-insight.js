@@ -203,7 +203,10 @@ const AccountInsight = (function () {
       active: row['Active Lic Calling'] != null ? String(row['Active Lic Calling']) : '—',
       addons: row['Add-ons included or not'] || '—',
       gatheredBy: row['Data gathered by'] || '',
-      gatheredDate: row['Data gathered date'] || '',
+      gatheredDate:
+        typeof BiaSanitizer !== 'undefined' && BiaSanitizer.formatDateDisplay
+          ? BiaSanitizer.formatDateDisplay(row['Data gathered date'])
+          : row['Data gathered date'] || '',
     };
   }
 
@@ -211,9 +214,11 @@ const AccountInsight = (function () {
   function renderFromRow(row) {
     const m = buildModel(row);
     const gathered =
-      m.gatheredBy || m.gatheredDate
-        ? `Data gathered${m.gatheredBy ? ' by ' + m.gatheredBy : ''}${m.gatheredDate ? ' on ' + m.gatheredDate : ''}`
-        : '';
+      typeof BiaSanitizer !== 'undefined' && BiaSanitizer.gatheredCaption
+        ? BiaSanitizer.gatheredCaption(m.gatheredBy, m.gatheredDate)
+        : m.gatheredBy || m.gatheredDate
+          ? `Data gathered${m.gatheredBy ? ' by ' + m.gatheredBy : ''}${m.gatheredDate ? ' on ' + m.gatheredDate : ''}`
+          : '';
 
     return `
     <div class="insight-slide">
